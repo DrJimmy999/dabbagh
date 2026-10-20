@@ -269,6 +269,7 @@ input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
           <li>Salaries and operating costs start from the figures you enter and can be changed month by month. Salaries are paid in the month they are incurred and carry no VAT. Other operating costs carry VAT and are paid after the payable days.</li>
           <li>VAT applies to all sales and costs except salaries. Receivables and payables include VAT. VAT is paid in March, June, September and December. Each payment covers the quarter that ended the month before, so VAT from the payment month itself (December, for example) goes into the next quarter's payment.</li>
           <li>The cash flow forecast shows money in and out in the month it happens, laid out like the P&amp;L: customer receipts, payments for cost of sales and operating costs, VAT, interest and tax, then investing and financing. Amounts are excluding VAT, with VAT shown on its own lines. Recurring revenue and costs follow the receivable and payable days, so each recurring line is its share of the month's total cash.</li>
+          <li>Carried forward debtors and creditors are invoices from before October 2026. Each one is collected or paid, including VAT, in the month you enter. They affect cash only, never the P&amp;L.</li>
           <li>Depreciation is straight-line over the asset life, starting the month after purchase, plus the existing depreciation figure.</li>
           <li>Corporate tax is charged on positive monthly profit before tax, with no carry-forward of losses, and paid after the tax lag.</li>
           <li>Years run January to December, so the first year covers three months (Oct to Dec 2026).</li>
@@ -329,8 +330,11 @@ var DEFAULTS = {
   debtOpen: 1000000, debtRepay: 30000, debtRate: 8,
   equity: 0, equityIdx: 5,
   taxRate: 9, taxLag: 9,
-  dso: 45, dpo: 30, openAR: 300000, openAP: 150000
+  dso: 45, dpo: 30,
+  debtors: defaultCF([['Client A, invoices 1 to 3', 120000, 0], ['Client B, retention', 100000, 1], ['Client C, final invoice', 80000, 2]]),
+  creditors: defaultCF([['Supplier X', 90000, 0], ['Sub-contractor Y', 60000, 1]])
 };
+function defaultCF(rows) { var a = []; for (var i = 0; i < 30; i++) { var r = rows[i]; a.push({ name: r ? r[0] : '', amount: r ? r[1] : 0, month: r ? r[2] : 0 }); } return a; }
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function monthsFor(endYear) { return (endYear - 2026) * 12 + 3; }
 function ML(i) { var m = (9 + i) % 12, y = 2026 + Math.floor((9 + i) / 12); return MN[m] + '-' + String(y).slice(2); }
@@ -400,16 +404,20 @@ function compute(A) {
   });
   var dVAT = idx.map(function (t) { return outVAT[t] - inVAT[t] - vatPaid[t]; });
 
+  // carried forward debtors and creditors: invoices raised before the forecast, amounts include VAT, cash only (no P&L effect)
+  var openAR = 0, openAP = 0, cfDeb = z(), cfCred = z(), arCF = z(), apCF = z();
+  A.debtors.forEach(function (d) { if (!(d.amount > 0)) return; openAR += d.amount; if (d.month < N) cfDeb[d.month] += d.amount; for (var t = 0; t < Math.min(d.month, N); t++) arCF[t] += d.amount; });
+  A.creditors.forEach(function (d) { if (!(d.amount > 0)) return; openAP += d.amount; if (d.month < N) cfCred[d.month] += d.amount; for (var t = 0; t < Math.min(d.month, N); t++) apCF[t] += d.amount; });
   // receivables and payables include VAT
-  var ar = idx.map(function (t) { return revS[t] * (1 + v) * A.dso / 30 + arProj[t]; });
-  var ap = idx.map(function (t) { return (cogsRec[t] + oxT[t]) * (1 + v) * A.dpo / 30 + apSub[t]; });
-  var cashAR = idx.map(function (t) { return -(ar[t] - (t ? ar[t - 1] : A.openAR)); });
-  var cashAP = idx.map(function (t) { return ap[t] - (t ? ap[t - 1] : A.openAP); });
+  var ar = idx.map(function (t) { return revS[t] * (1 + v) * A.dso / 30 + arProj[t] + arCF[t]; });
+  var ap = idx.map(function (t) { return (cogsRec[t] + oxT[t]) * (1 + v) * A.dpo / 30 + apSub[t] + apCF[t]; });
+  var cashAR = idx.map(function (t) { return -(ar[t] - (t ? ar[t - 1] : openAR)); });
+  var cashAP = idx.map(function (t) { return ap[t] - (t ? ap[t - 1] : openAP); });
   var taxPaid = idx.map(function (t) { return t >= A.taxLag ? tax[t - A.taxLag] : 0; });
   var dTax = idx.map(function (t) { return tax[t] - taxPaid[t]; });
   // direct cash forecast: receipts and payments in the month they happen
-  var arRecPrev = idx.map(function (t) { return t ? revS[t - 1] * (1 + v) * A.dso / 30 : A.openAR; });
-  var apRecPrev = idx.map(function (t) { return t ? (cogsRec[t - 1] + oxT[t - 1]) * (1 + v) * A.dpo / 30 : A.openAP; });
+  var arRecPrev = idx.map(function (t) { return t ? revS[t - 1] * (1 + v) * A.dso / 30 : 0; });
+  var apRecPrev = idx.map(function (t) { return t ? (cogsRec[t - 1] + oxT[t - 1]) * (1 + v) * A.dpo / 30 : 0; });
   var recGross = idx.map(function (t) { return revS[t] * (1 + v) - (revS[t] * (1 + v) * A.dso / 30 - arRecPrev[t]); });
   var recBase = idx.map(function (t) { return cogsRec[t] + oxT[t]; });
   var payGross = idx.map(function (t) { return recBase[t] * (1 + v) - ((recBase[t] * (1 + v) * A.dpo / 30) - apRecPrev[t]); });
@@ -436,7 +444,8 @@ function compute(A) {
   var vatIn = idx.map(function (t) { return v * cRecvT[t]; });
   var vatOut = idx.map(function (t) { return v * (cCogsT[t] + cOxT[t]); });
   var vatNet = idx.map(function (t) { return vatIn[t] - vatOut[t] - vatPaid[t]; });
-  var cBeforeFin = idx.map(function (t) { return cOpCash[t] + vatNet[t] - interest[t] - taxPaid[t]; });
+  var cfNet = idx.map(function (t) { return cfDeb[t] - cfCred[t]; });
+  var cBeforeFin = idx.map(function (t) { return cOpCash[t] + vatNet[t] + cfNet[t] - interest[t] - taxPaid[t]; });
   var cfo = idx.map(function (t) { return np[t] + dep[t] + cashAR[t] + cashAP[t] + dVAT[t] + dTax[t]; });
   var inv = capex.map(function (x) { return -x; });
   var eq = idx.map(function (t) { return t === A.equityIdx ? A.equity : 0; });
@@ -450,7 +459,7 @@ function compute(A) {
     cashAR: cashAR, cashAP: cashAP, dTax: dTax, cfo: cfo, inv: inv, eq: eq, repay: repay, fin: fin, net: net,
     openCash: openCash, closeCash: closeCash, debtClose: debtClose,
     cRev: cRev, cProj: cProj, cRecvT: cRecvT, cCogsRec: cCogsRec, cSub: cSub, cCogsT: cCogsT, cGP: cGP, cOx: cOx, cOxT: cOxT, cOpT: cOpT,
-    cOpCash: cOpCash, vatIn: vatIn, vatOut: vatOut, vatNet: vatNet, taxPaid: taxPaid, cBeforeFin: cBeforeFin };
+    cOpCash: cOpCash, cfDeb: cfDeb, cfCred: cfCred, cfNet: cfNet, vatIn: vatIn, vatOut: vatOut, vatNet: vatNet, taxPaid: taxPaid, cBeforeFin: cBeforeFin };
 }
 
 function periods(N, mode) {
@@ -564,6 +573,10 @@ function niceScale(min, max, count) {
     r.push({ label: 'VAT paid to suppliers', s: neg(M.vatOut), style: 'indent' });
     r.push({ label: 'VAT paid to the tax authority', s: neg(M.vatPaid), style: 'indent' });
     r.push({ label: 'Net VAT cash', s: M.vatNet, style: 'sub', flag: 1 });
+    r.push({ head: 'Carried forward debtors and creditors (incl. VAT)' });
+    r.push({ label: 'Debtors collected', s: M.cfDeb, style: 'indent' });
+    r.push({ label: 'Creditors paid', s: neg(M.cfCred), style: 'indent' });
+    r.push({ label: 'Net carried forward cash', s: M.cfNet, style: 'sub', flag: 1 });
     r.push({ head: 'Interest and tax' });
     r.push({ label: 'Interest paid', s: neg(M.interest), style: 'indent' });
     r.push({ label: 'Corporate tax paid', s: neg(M.taxPaid), style: 'indent' });
@@ -738,6 +751,23 @@ function niceScale(min, max, count) {
     return '<div class="frow"><label for="' + idOf(path) + '">' + label + (hint ? '<small>' + hint + '</small>' : '') + '</label>' + input + '</div>';
   }
 
+  /* carried forward debtors and creditors: thirty rows each */
+  function cfBlock(key, title, who) {
+    var rows = A[key].map(function (d, k) {
+      var b = key + '.' + k + '.', w = title + ' row ' + (k + 1);
+      return '<tr><td class="sn">' + (k + 1) + '</td><td>' + txt(b + 'name', d.name, w + ' name', who + ' ' + (k + 1)) + '</td><td>' + num(b + 'amount', d.amount, { min: 0, aria: w + ' amount including VAT' }) +
+        '</td><td>' + selMonth(b + 'month', d.month, w + ' expected cash month') + '</td></tr>';
+    }).join('');
+    return '<details class="proj"' + '><summary><span class="pn">' + title + '</span><span class="ps" id="cfs-' + key + '"></span></summary><div class="pbody"><div class="tw" style="border:0"><table class="itab stg"><thead><tr><th></th><th>' + who + '</th><th>Amount incl. VAT</th><th>Expected cash month</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></details>';
+  }
+  function syncCF() {
+    ['debtors', 'creditors'].forEach(function (key) {
+      var n = 0, tot = 0;
+      A[key].forEach(function (d) { if (d.amount > 0) { n++; tot += d.amount; } });
+      var el = $('cfs-' + key); if (el) el.textContent = n ? fmtC(tot) + ' across ' + n + (n === 1 ? ' item' : ' items') : 'Nothing entered';
+    });
+  }
+
   /* projects: ten fixed slots, ten stages each */
   function buildProjects() {
     $('projects').innerHTML = A.projects.map(function (p, k) {
@@ -825,6 +855,7 @@ function niceScale(min, max, count) {
         frow('horizonEnd', 'Forecast runs to', 'Starts October 2026', '<select id="a-horizonEnd" data-path="horizonEnd" data-kind="int">' + hz + '</select>') +
         frow('openCash', 'Opening cash', 'Balance at 1 Oct 2026', num('openCash', A.openCash, { min: 0 })) + '</div>' +
       '<div class="card wide"><h2>Projects</h2><p class="hint">Ten project slots, each with up to ten stages. Amounts exclude VAT. A stage is recognised as revenue, and its sub-contractor cost charged to cost of sales, in the invoice month. The client pays after the payment days, and sub-contractors are paid in that same month. Stages with no amounts are ignored.</p><div id="projects"></div></div>' +
+      '<div class="card wide"><h2>Carried forward debtors and creditors</h2><p class="hint">Invoices raised before 1 October 2026 and not yet settled. Enter the amount including VAT and the month you expect the cash to move. These affect cash only, not the P&amp;L, and their VAT is already in the opening VAT payable. A month before the forecast start is treated as October 2026.</p>' + cfBlock('debtors', 'Debtors (money owed to you)', 'Customer') + cfBlock('creditors', 'Creditors (money you owe)', 'Supplier') + '</div>' +
       '<div class="card wide"><h2>Recurring revenue and cost of sales</h2><p class="hint">Optional. Set the first-month revenue to zero if all revenue comes from projects.</p><div class="tw" style="border:0"><table class="itab"><thead><tr><th>Stream</th><th>First-month revenue</th><th>Growth per month (%)</th><th>Cost of sales (% of revenue)</th></tr></thead><tbody>' + sRows + '</tbody></table></div></div>' +
       '<div class="card wide"><h2>Salaries</h2><p class="hint">Up to 20 employees. Enter a monthly salary and a start month to fill the grid, then change any month by typing over it. Set a month to 0 when someone leaves. Salaries are paid in the month they are incurred and carry no VAT.</p>' +
         '<div class="tw" style="border:0"><table class="itab"><thead><tr><th>Employee</th><th>Monthly salary</th><th>Starts in</th></tr></thead><tbody>' + eRows + '</tbody></table></div>' +
@@ -832,11 +863,10 @@ function niceScale(min, max, count) {
       '<div class="card wide"><h2>Operating costs</h2><p class="hint">These lines carry VAT and are paid after the payable days. The first-month amount and growth fill the grid, and any month can be overridden.</p>' +
         '<div class="tw" style="border:0"><table class="itab"><thead><tr><th>Cost line</th><th>First-month amount</th><th>Growth per month (%)</th></tr></thead><tbody>' + oRows + '</tbody></table></div>' +
         '<h3>Operating costs by month</h3><p class="hint">Highlighted cells are your own figures. Clear a cell, or use Reset, to go back to the formula.</p><div id="oxgrid"></div></div>' +
-      '<div class="card"><h2>Working capital</h2><p class="hint">Applies to recurring revenue and operating costs. Projects use the payment days on each stage.</p>' +
+      '<div class="card"><h2>Working capital</h2><p class="hint">Applies to recurring revenue and operating costs. Projects use the payment days on each stage. Balances carried forward from before October 2026 are entered under Carried forward debtors and creditors.</p>' +
         frow('dso', 'Receivable days', 'Days customers take to pay', num('dso', A.dso, { min: 0, max: 365 })) +
         frow('dpo', 'Payable days', 'Days taken to pay suppliers', num('dpo', A.dpo, { min: 0, max: 365 })) +
-        frow('openAR', 'Opening receivables', 'Including VAT', num('openAR', A.openAR, { min: 0 })) +
-        frow('openAP', 'Opening payables', 'Including VAT', num('openAP', A.openAP, { min: 0 })) + '</div>' +
+        '</div>' +
       '<div class="card"><h2>VAT</h2><p class="hint">Charged on all sales and costs except salaries. Paid in March, June, September and December for the quarter that ended the month before.</p>' +
         frow('vat', 'VAT rate (%)', '', num('vat', A.vat, { min: 0, max: 100 })) +
         frow('openVAT', 'Opening VAT payable', 'Included in the first payment (Dec-26, covering Sep to Nov)', num('openVAT', A.openVAT)) + '</div>' +
@@ -854,7 +884,7 @@ function niceScale(min, max, count) {
         frow('taxRate', 'Tax rate (%)', 'On positive monthly profit', num('taxRate', A.taxRate, { min: 0, max: 100 })) +
         frow('taxLag', 'Tax paid after (months)', 'Delay between charge and payment', num('taxLag', A.taxLag, { min: 0, max: 36, int: true })) + '</div>' +
       '</div>';
-    rebuildEquity(); buildProjects(); buildGrid('sal'); buildGrid('ox');
+    rebuildEquity(); buildProjects(); syncCF(); buildGrid('sal'); buildGrid('ox');
   }
   function rebuildEquity() {
     var sel = $('a-equityIdx'), N = monthsFor(A.horizonEnd), h = '';
@@ -889,6 +919,7 @@ function niceScale(min, max, count) {
     setPath(path, v);
     if (path === 'horizonEnd') { rebuildEquity(); buildGrid('sal'); buildGrid('ox'); syncProjects(); }
     if (/^projects\./.test(path)) syncProjects();
+    if (/^(debtors|creditors)\./.test(path)) syncCF();
     if (/^opex\.\d+\./.test(path)) updateGrid('ox');
     if (/^employees\.\d+\./.test(path)) updateGrid('sal');
     touch(sectionOfPath(path));
@@ -906,8 +937,9 @@ function niceScale(min, max, count) {
   });
 
   /* ---------- shared storage on Supabase: one row per section, reached only through two token-checked functions ---------- */
-  var SECTIONS = ['general', 'streams', 'opex', 'employees', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9'];
-  var SCALARS = ['currency', 'horizonEnd', 'openCash', 'vat', 'openVAT', 'capex', 'lifeYears', 'existingDep', 'debtOpen', 'debtRepay', 'debtRate', 'equity', 'equityIdx', 'taxRate', 'taxLag', 'dso', 'dpo', 'openAR', 'openAP'];
+  var ITEMS = ['streams', 'opex', 'employees', 'debtors', 'creditors'];
+  var SECTIONS = ['general', 'streams', 'opex', 'employees', 'debtors', 'creditors', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9'];
+  var SCALARS = ['currency', 'horizonEnd', 'openCash', 'vat', 'openVAT', 'capex', 'lifeYears', 'existingDep', 'debtOpen', 'debtRepay', 'debtRate', 'equity', 'equityIdx', 'taxRate', 'taxLag', 'dso', 'dpo'];
   var CFG = window.APP_CONFIG || {};
   var KEEP = 'plcf-link';
   function keptGet() { try { return localStorage.getItem(KEEP) || ''; } catch (e) { return ''; } }
@@ -930,21 +962,21 @@ function niceScale(min, max, count) {
   function sectionOfPath(path) {
     var m = /^projects\.(\d+)\./.exec(path); if (m) return 'p' + m[1];
     var root = path.split('.')[0];
-    return (root === 'streams' || root === 'opex' || root === 'employees') ? root : 'general';
+    return ITEMS.indexOf(root) >= 0 ? root : 'general';
   }
   function sectionData(id) {
     if (id === 'general') { var g = {}; SCALARS.forEach(function (k) { g[k] = A[k]; }); return g; }
-    if (id === 'streams' || id === 'opex' || id === 'employees') return { items: clone(A[id]) };
+    if (ITEMS.indexOf(id) >= 0) return { items: clone(A[id]) };
     return clone(A.projects[+id.slice(1)]);
   }
   function defaultSection(id) {
     if (id === 'general') { var g = {}; SCALARS.forEach(function (k) { g[k] = DEFAULTS[k]; }); return g; }
-    if (id === 'streams' || id === 'opex' || id === 'employees') return { items: clone(DEFAULTS[id]) };
+    if (ITEMS.indexOf(id) >= 0) return { items: clone(DEFAULTS[id]) };
     return clone(DEFAULTS.projects[+id.slice(1)]);
   }
   function applySection(id, data) {
     if (id === 'general') { SCALARS.forEach(function (k) { if (data && typeof data[k] === typeof DEFAULTS[k]) A[k] = data[k]; }); return; }
-    if (id === 'streams' || id === 'opex' || id === 'employees') { A[id] = merge(DEFAULTS[id], data && data.items); return; }
+    if (ITEMS.indexOf(id) >= 0) { A[id] = merge(DEFAULTS[id], data && data.items); return; }
     A.projects[+id.slice(1)] = merge(DEFAULTS.projects[+id.slice(1)], data);
   }
   function setSync(text, warn) { var s = $('sync'); s.textContent = text; s.className = 'sync' + (warn ? ' warn' : ''); }
@@ -990,7 +1022,7 @@ function niceScale(min, max, count) {
       if (el === ae) return;
       var v = getPath(el.dataset.path); if (v !== undefined) el.value = v;
     });
-    updateGrid('ox'); updateGrid('sal'); syncProjects(); refresh();
+    updateGrid('ox'); updateGrid('sal'); syncProjects(); syncCF(); refresh();
   }
   function applyRemote(model, first) {
     var secs = (model && model.sections) || {}, changed = false;
