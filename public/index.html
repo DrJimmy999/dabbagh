@@ -1,0 +1,1045 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>P&L and Cash Flow Model</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+.loading .wrap { display: none; }
+#boot { display: none; max-width: 520px; margin: 20vh auto 0; padding: 0 16px; text-align: center; color: var(--muted); font: 15px/1.5 var(--f-body); }
+.loading #boot { display: block; }
+/* Layout: a ledger-style workbook. Tabs switch between summary, assumptions and the two statements; one shared toolbar sets period and units. */
+:root {
+  --bg: #EEF2F3;
+  --tint: #F5F8F9;
+  --surface: #FFFFFF;
+  --ink: #13222B;
+  --muted: #58707C;
+  --line: #D3DEE2;
+  --line-soft: #E6EDEF;
+  --accent: #0A6C74;
+  --accent-soft: #DDEEF0;
+  --on-accent: #FFFFFF;
+  --bar: #A9C1CC;
+  --pos: #17794A;
+  --neg: #B42318;
+  --warn-bg: #FBEFD6;
+  --warn-ink: #6B4A06;
+  --f-display: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --f-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E181D;
+    --tint: #1A2C34;
+    --surface: #15232A;
+    --ink: #E4EEF1;
+    --muted: #8CA4AF;
+    --line: #29434D;
+    --line-soft: #1F343C;
+    --accent: #4DB8BF;
+    --accent-soft: #17383D;
+    --on-accent: #06191C;
+    --bar: #3E5E6C;
+    --pos: #4CC38A;
+    --neg: #F27A6E;
+    --warn-bg: #3A2E10;
+    --warn-ink: #F2D58A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E181D;
+  --tint: #1A2C34;
+  --surface: #15232A;
+  --ink: #E4EEF1;
+  --muted: #8CA4AF;
+  --line: #29434D;
+  --line-soft: #1F343C;
+  --accent: #4DB8BF;
+  --accent-soft: #17383D;
+  --on-accent: #06191C;
+  --bar: #3E5E6C;
+  --pos: #4CC38A;
+  --neg: #F27A6E;
+  --warn-bg: #3A2E10;
+  --warn-ink: #F2D58A;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.5 var(--f-body);
+  padding-block: 22px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1180px; margin: 0 auto; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 20px; margin-bottom: 16px; }
+h1 { font: 600 30px/1.15 var(--f-display); letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.sub { margin: 6px 0 0; color: var(--muted); }
+.chip { font-size: 12px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--warn-ink); background: var(--warn-bg); padding: 4px 10px; border-radius: 3px; }
+
+.hr { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.sync { font-size: 12px; color: var(--muted); }
+.sync.warn { color: var(--warn-ink); background: var(--warn-bg); padding: 4px 10px; border-radius: 3px; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tab { appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--muted); font: 500 14px var(--f-body); padding: 10px 16px; cursor: pointer; white-space: nowrap; }
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+
+.bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin: 16px 0 10px; }
+.cap { font-weight: 600; }
+.ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--surface); }
+.seg button { appearance: none; border: 0; background: none; color: var(--muted); font: 500 13px var(--f-body); padding: 6px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.btn { appearance: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 4px; font: 500 13px var(--f-body); padding: 6px 12px; cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.cs { color: var(--muted); font-size: 12px; min-width: 90px; }
+
+main { margin-top: 16px; }
+.bar + main { margin-top: 0; }
+.stack { display: grid; gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 16px; min-width: 0; }
+.card h2 { font: 500 19px/1.25 var(--f-display); margin: 0 0 12px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.card h2 .u { font: 400 13px var(--f-body); color: var(--muted); }
+.card h3 { font: 600 14px var(--f-body); margin: 18px 0 4px; }
+.hint { color: var(--muted); font-size: 13px; margin: -4px 0 12px; max-width: 78ch; }
+
+.status { padding: 12px 16px; border-radius: 4px; }
+.status.ok { background: var(--accent-soft); }
+.status.warn { background: var(--warn-bg); color: var(--warn-ink); }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 14px 16px; min-width: 0; }
+.kpi .k { font-size: 11px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.kpi .v { font: 600 26px/1.2 var(--f-display); margin: 4px 0 2px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.kpi .v.neg { color: var(--neg); }
+.kpi .s { font-size: 12px; color: var(--muted); }
+
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; margin-bottom: 8px; font-size: 13px; }
+.legend .m { font-weight: 600; min-width: 54px; }
+.legend .li { display: inline-flex; align-items: center; gap: 6px; }
+.legend .li b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.legend .sw { width: 10px; height: 10px; display: inline-block; }
+.cbox { overflow-x: auto; }
+.cbox svg { display: block; width: 100%; min-width: 620px; height: auto; touch-action: pan-x pan-y; }
+.ax { fill: var(--muted); font-size: 11px; font-family: var(--f-body); }
+.grid { stroke: var(--line-soft); stroke-width: 1; }
+.grid.zero { stroke: var(--muted); stroke-opacity: 0.7; }
+.guide { stroke: var(--muted); stroke-dasharray: 3 3; }
+
+.tw { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); border-radius: 4px; }
+table.fin { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+.fin th, .fin td { padding: 6px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line-soft); min-width: 68px; font-weight: 400; }
+.fin.wide th, .fin.wide td { min-width: 94px; }
+.fin thead th { font-weight: 600; background: var(--tint); border-bottom: 1px solid var(--line); vertical-align: bottom; }
+.fin thead small { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
+.fin .lab { position: sticky; left: 0; z-index: 1; text-align: left; min-width: 190px; background: var(--surface); border-right: 1px solid var(--line); }
+.fin thead .lab { background: var(--tint); }
+.fin tr.head .lab, .fin tr.head td { background: var(--tint); font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.fin tr.indent .lab { padding-left: 24px; }
+.fin tr.sub .lab, .fin tr.sub td { font-weight: 600; }
+.fin tr.total .lab, .fin tr.total td { font-weight: 600; background: var(--accent-soft); border-top: 1px solid var(--accent); }
+.fin tr.pct .lab, .fin tr.pct td { color: var(--muted); font-style: italic; }
+.fin td.neg { color: var(--neg); }
+.fin tbody tr:last-child .lab, .fin tbody tr:last-child td { border-bottom: 0; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.lead { margin: 0 0 16px; max-width: 70ch; }
+.agrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.agrid .wide { grid-column: 1 / -1; }
+.frow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, 150px); gap: 12px; align-items: center; padding: 6px 0; }
+.frow small { display: block; color: var(--muted); font-size: 12px; }
+input, select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; width: 100%; min-width: 0; }
+input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
+.itab { width: 100%; border-collapse: collapse; }
+.itab th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: 0 8px 6px 0; white-space: nowrap; }
+.itab td { padding: 3px 8px 3px 0; }
+.itab td:first-child input { min-width: 150px; }
+.itab td input[type="number"] { min-width: 110px; }
+.itab td input.days { min-width: 72px; }
+.itab td select { min-width: 96px; }
+.itab td.sn { color: var(--muted); width: 28px; }
+.itab td.ci { color: var(--muted); white-space: nowrap; font-size: 13px; }
+.stg td:first-child input { min-width: 0; }
+
+.proj { border: 1px solid var(--line); border-radius: 4px; margin-bottom: 10px; background: var(--surface); }
+.proj > summary { cursor: pointer; padding: 10px 12px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px; list-style: none; }
+.proj > summary::-webkit-details-marker { display: none; }
+.proj > summary::before { content: "\25B8"; color: var(--muted); }
+.proj[open] > summary::before { content: "\25BE"; }
+.proj .pn { font-weight: 600; }
+.proj .ps { color: var(--muted); font-size: 13px; }
+.proj .pbody { padding: 0 12px 12px; }
+
+.ogrid { border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.ogrid th { font-size: 12px; font-weight: 500; color: var(--muted); text-align: right; padding: 6px 6px; white-space: nowrap; border-bottom: 1px solid var(--line); background: var(--tint); }
+.ogrid td { padding: 2px 3px; }
+.ogrid .lab { position: sticky; left: 0; z-index: 1; text-align: left; min-width: 200px; background: var(--surface); color: var(--ink); font-size: 13px; font-weight: 400; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line-soft); padding: 2px 8px; }
+.ogrid thead .lab { background: var(--tint); font-weight: 500; color: var(--muted); font-size: 12px; }
+.ogrid input { width: 88px; padding: 4px 6px; font-size: 13px; }
+.ogrid input.ov { border-color: var(--accent); background: var(--accent-soft); }
+.lnk { appearance: none; border: 0; background: none; color: var(--accent); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; padding: 0 0 0 8px; }
+
+.notes ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; max-width: 78ch; }
+.foot { margin-top: 16px; display: flex; gap: 12px; align-items: center; }
+
+@media (max-width: 520px) {
+  h1 { font-size: 25px; }
+  .kpi .v { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body class="loading">
+<p id="boot">Loading your model…</p>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>P&amp;L and Cash Flow Model</h1>
+      <p class="sub" id="sub"></p>
+    </div>
+    <div class="hr"><span class="sync" id="sync" role="status"></span><span class="chip">Illustrative figures</span></div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Model sections">
+    <button class="tab" role="tab" data-tab="summary" aria-selected="true">Summary</button>
+    <button class="tab" role="tab" data-tab="assumptions" aria-selected="false">Assumptions</button>
+    <button class="tab" role="tab" data-tab="pl" aria-selected="false">Profit and loss</button>
+    <button class="tab" role="tab" data-tab="cashflow" aria-selected="false">Cash flow</button>
+  </nav>
+
+  <div class="bar" id="bar" hidden>
+    <span class="cap" id="cap"></span>
+    <div class="ctl">
+      <div class="seg" role="group" aria-label="Period">
+        <button data-period="monthly" aria-pressed="true">Monthly</button>
+        <button data-period="quarterly" aria-pressed="false">Quarterly</button>
+        <button data-period="annual" aria-pressed="false">Annual</button>
+      </div>
+      <div class="seg" role="group" aria-label="Units">
+        <button data-units="k" aria-pressed="true">Thousands</button>
+        <button data-units="u" aria-pressed="false">Full amounts</button>
+      </div>
+      <button class="btn" id="copy">Copy table</button>
+      <span class="cs" id="cs" role="status"></span>
+    </div>
+  </div>
+
+  <main>
+    <section id="tab-summary" class="stack">
+      <div class="status ok" id="status"></div>
+      <div class="kpis" id="kpis"></div>
+      <div class="card">
+        <h2>Revenue and profit by month</h2>
+        <div id="ch-pl"></div>
+      </div>
+      <div class="card">
+        <h2>Closing cash balance</h2>
+        <div id="ch-cash"></div>
+      </div>
+      <div class="card">
+        <h2>Year by year <span class="u" id="sum-u"></span></h2>
+        <div class="tw" id="sum-table"></div>
+      </div>
+    </section>
+
+    <section id="tab-assumptions" hidden>
+      <p class="lead">Every figure on this page can be changed. The summary, charts and statements update as you type. Changes are saved for everyone with this link.</p>
+      <div id="afields"></div>
+      <div class="card notes" style="margin-top:16px">
+        <h2>How the model works</h2>
+        <ul>
+          <li>Projects: each stage is recognised as revenue in its invoice month, and its sub-contractor cost is charged to cost of sales in the same month. The client pays after the stage's payment days (30 days counts as one month, rounded to whole months). Sub-contractors are paid in the month the client pays.</li>
+          <li>Recurring revenue streams start at the first-month figure and grow by a fixed percentage each month. Customers pay after the receivable days.</li>
+          <li>Salaries and operating costs start from the figures you enter and can be changed month by month. Salaries are paid in the month they are incurred and carry no VAT. Other operating costs carry VAT and are paid after the payable days.</li>
+          <li>VAT applies to all sales and costs except salaries. Receivables and payables include VAT. The VAT owed builds up and is paid in March, June, September and December, covering everything since the last payment.</li>
+          <li>Depreciation is straight-line over the asset life, starting the month after purchase, plus the existing depreciation figure.</li>
+          <li>Corporate tax is charged on positive monthly profit before tax, with no carry-forward of losses, and paid after the tax lag.</li>
+          <li>Years run January to December, so the first year covers three months (Oct to Dec 2026).</li>
+        </ul>
+      </div>
+      <div class="foot"><button class="btn" id="reset" hidden>Reset assumptions</button></div>
+    </section>
+
+    <section id="tab-pl" hidden><div class="tw" id="pl-table"></div></section>
+    <section id="tab-cashflow" hidden><div class="tw" id="cf-table"></div></section>
+  </main>
+</div>
+
+<script src="config.js"></script>
+<script>
+//<model>
+var MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function mkStages(list) {
+  var s = list.map(function (x) { return { name: x[0], charge: x[1], sub: x[2], month: x[3], days: x[4] }; });
+  while (s.length < 10) s.push({ name: '', charge: 0, sub: 0, month: 0, days: 30 });
+  return s;
+}
+function mkProject(name, list) { return { name: name, stages: mkStages(list) }; }
+function mkEmp(name, base, start) { return { name: name, base: base, startIdx: start, over: {} }; }
+function defaultProjects() {
+  var p = [
+    mkProject('Project Alpha', [['Mobilisation', 200000, 0, 1, 30], ['Design', 300000, 100000, 3, 45], ['Delivery', 600000, 380000, 6, 45], ['Handover', 300000, 150000, 9, 60]]),
+    mkProject('Project Beta', [['Phase 1', 400000, 220000, 2, 30], ['Phase 2', 500000, 300000, 8, 45], ['Phase 3', 400000, 220000, 12, 45]]),
+    mkProject('Project Gamma', [['Study', 150000, 50000, 4, 30], ['Build', 350000, 200000, 10, 45], ['Close-out', 250000, 130000, 14, 45]])
+  ];
+  while (p.length < 10) p.push(mkProject('Project ' + (p.length + 1), []));
+  return p;
+}
+function defaultEmployees() {
+  var e = [mkEmp('Managing director', 45000, 0), mkEmp('Project manager', 32000, 0), mkEmp('Senior engineer', 26000, 0), mkEmp('Engineer', 20000, 0),
+    mkEmp('Designer', 18000, 0), mkEmp('Office administrator', 12000, 0), mkEmp('Business development', 28000, 3), mkEmp('Engineer (new hire)', 20000, 5)];
+  while (e.length < 20) e.push(mkEmp('', 0, 0));
+  return e;
+}
+var DEFAULTS = {
+  currency: 'AED', horizonEnd: 2027, openCash: 1500000,
+  streams: [
+    { name: 'Retainers', start: 150000, growth: 1, cogs: 25 },
+    { name: 'Support and maintenance', start: 90000, growth: 0.5, cogs: 40 },
+    { name: 'Licences and other', start: 40000, growth: 1, cogs: 30 }
+  ],
+  projects: defaultProjects(),
+  employees: defaultEmployees(),
+  opex: [
+    { name: 'Marketing', start: 25000, growth: 1, over: {} },
+    { name: 'Rent and facilities', start: 30000, growth: 0.5, over: {} },
+    { name: 'Software and tools', start: 15000, growth: 1, over: {} },
+    { name: 'Professional fees', start: 12000, growth: 0, over: {} },
+    { name: 'Other overheads', start: 15000, growth: 1, over: {} }
+  ],
+  vat: 5, openVAT: 0,
+  capex: 20000, lifeYears: 4, existingDep: 6000,
+  debtOpen: 1000000, debtRepay: 30000, debtRate: 8,
+  equity: 0, equityIdx: 5,
+  taxRate: 9, taxLag: 9,
+  dso: 45, dpo: 30, openAR: 300000, openAP: 150000
+};
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function monthsFor(endYear) { return (endYear - 2026) * 12 + 3; }
+function ML(i) { var m = (9 + i) % 12, y = 2026 + Math.floor((9 + i) / 12); return MN[m] + '-' + String(y).slice(2); }
+function cashInLabel(st, N) {
+  if (!(st.charge || st.sub)) return '–';
+  if (st.month >= N) return 'After forecast';
+  var pm = st.month + Math.round(st.days / 30);
+  return pm >= 39 ? 'After Dec-29' : ML(pm) + (pm >= N ? ' (after forecast)' : '');
+}
+
+function compute(A) {
+  var N = monthsFor(A.horizonEnd), idx = [], q;
+  for (q = 0; q < N; q++) idx.push(q);
+  var z = function () { return idx.map(function () { return 0; }); };
+  var sumA = function (arrs) { return idx.map(function (t) { return arrs.reduce(function (s, a) { return s + a[t]; }, 0); }); };
+  var v = A.vat / 100;
+  var labels = idx.map(ML);
+
+  // recurring revenue streams
+  var rev = A.streams.map(function (s) { return idx.map(function (t) { return s.start * Math.pow(1 + s.growth / 100, t); }); });
+  var cogsS = A.streams.map(function (s, k) { return rev[k].map(function (x) { return x * s.cogs / 100; }); });
+  var revS = sumA(rev), cogsRec = sumA(cogsS);
+
+  // projects: revenue and sub-contractor cost land in the invoice month; client and sub-contractor are both settled in the payment month
+  var projRev = A.projects.map(function (p) { var a = z(); p.stages.forEach(function (st) { if (st.month < N) a[st.month] += st.charge; }); return a; });
+  var subcT = z(), arProj = z(), apSub = z();
+  A.projects.forEach(function (p) {
+    p.stages.forEach(function (st) {
+      var i = st.month; if (i >= N || (!st.charge && !st.sub)) return;
+      subcT[i] += st.sub;
+      var pm = i + Math.round(st.days / 30);
+      for (var t = i; t < Math.min(pm, N); t++) { arProj[t] += st.charge * (1 + v); apSub[t] += st.sub * (1 + v); }
+    });
+  });
+  var revT = idx.map(function (t) { return revS[t] + projRev.reduce(function (s, a) { return s + a[t]; }, 0); });
+  var cogsT = idx.map(function (t) { return cogsRec[t] + subcT[t]; });
+  var gp = idx.map(function (t) { return revT[t] - cogsT[t]; });
+
+  // salaries (paid in month, no VAT) and other operating costs
+  var sal = A.employees.map(function (e) { return idx.map(function (t) { var ov = e.over && e.over[t]; return ov !== undefined ? ov : (t >= e.startIdx ? e.base : 0); }); });
+  var salT = sumA(sal);
+  var ox = A.opex.map(function (o) { return idx.map(function (t) { var ov = o.over && o.over[t]; return ov !== undefined ? ov : o.start * Math.pow(1 + o.growth / 100, t); }); });
+  var oxT = sumA(ox);
+  var opT = idx.map(function (t) { return salT[t] + oxT[t]; });
+  var ebitda = idx.map(function (t) { return gp[t] - opT[t]; });
+
+  var life = Math.max(1, Math.round(A.lifeYears * 12));
+  var capex = idx.map(function () { return A.capex; });
+  var dep = idx.map(function (t) { var d = A.existingDep; for (var s = Math.max(0, t - life); s < t; s++) d += capex[s] / life; return d; });
+  var ebit = idx.map(function (t) { return ebitda[t] - dep[t]; });
+  var interest = [], repay = [], debtClose = [], bal = A.debtOpen;
+  idx.forEach(function (t) { interest[t] = bal * A.debtRate / 1200; repay[t] = Math.min(A.debtRepay, bal); bal -= repay[t]; debtClose[t] = bal; });
+  var pbt = idx.map(function (t) { return ebit[t] - interest[t]; });
+  var tax = idx.map(function (t) { return Math.max(0, pbt[t]) * A.taxRate / 100; });
+  var np = idx.map(function (t) { return pbt[t] - tax[t]; });
+
+  // VAT: charged on sales, claimed on costs (not salaries), settled in Mar, Jun, Sep, Dec
+  var outVAT = idx.map(function (t) { return v * revT[t]; });
+  var inVAT = idx.map(function (t) { return v * (cogsT[t] + oxT[t]); });
+  var vatPaid = [], vatBal = [], vb = A.openVAT;
+  idx.forEach(function (t) {
+    vb += outVAT[t] - inVAT[t];
+    var m = (9 + t) % 12;
+    if (m === 2 || m === 5 || m === 8 || m === 11) { vatPaid[t] = vb; vb = 0; } else vatPaid[t] = 0;
+    vatBal[t] = vb;
+  });
+  var dVAT = idx.map(function (t) { return outVAT[t] - inVAT[t] - vatPaid[t]; });
+
+  // receivables and payables include VAT
+  var ar = idx.map(function (t) { return revS[t] * (1 + v) * A.dso / 30 + arProj[t]; });
+  var ap = idx.map(function (t) { return (cogsRec[t] + oxT[t]) * (1 + v) * A.dpo / 30 + apSub[t]; });
+  var cashAR = idx.map(function (t) { return -(ar[t] - (t ? ar[t - 1] : A.openAR)); });
+  var cashAP = idx.map(function (t) { return ap[t] - (t ? ap[t - 1] : A.openAP); });
+  var taxPaid = idx.map(function (t) { return t >= A.taxLag ? tax[t - A.taxLag] : 0; });
+  var dTax = idx.map(function (t) { return tax[t] - taxPaid[t]; });
+  var cfo = idx.map(function (t) { return np[t] + dep[t] + cashAR[t] + cashAP[t] + dVAT[t] + dTax[t]; });
+  var inv = capex.map(function (x) { return -x; });
+  var eq = idx.map(function (t) { return t === A.equityIdx ? A.equity : 0; });
+  var fin = idx.map(function (t) { return eq[t] - repay[t]; });
+  var net = idx.map(function (t) { return cfo[t] + inv[t] + fin[t]; });
+  var openCash = [], closeCash = [], c = A.openCash;
+  idx.forEach(function (t) { openCash[t] = c; c += net[t]; closeCash[t] = c; });
+  return { N: N, labels: labels, rev: rev, revS: revS, projRev: projRev, revT: revT, cogsRec: cogsRec, subcT: subcT, cogsT: cogsT, gp: gp,
+    salT: salT, ox: ox, oxT: oxT, opT: opT, ebitda: ebitda, dep: dep, ebit: ebit, interest: interest, pbt: pbt, tax: tax, np: np,
+    outVAT: outVAT, inVAT: inVAT, vatPaid: vatPaid, vatBal: vatBal, dVAT: dVAT, ar: ar, ap: ap, arProj: arProj, apSub: apSub,
+    cashAR: cashAR, cashAP: cashAP, dTax: dTax, cfo: cfo, inv: inv, eq: eq, repay: repay, fin: fin, net: net,
+    openCash: openCash, closeCash: closeCash, debtClose: debtClose };
+}
+
+function periods(N, mode) {
+  var out = [], i, ym = function (k) { return { y: 2026 + Math.floor((9 + k) / 12), m: (9 + k) % 12 }; };
+  if (mode === 'monthly') { for (i = 0; i < N; i++) out.push({ label: ML(i), sub: '', from: i, to: i }); return out; }
+  var key = function (k) { var d = ym(k); return mode === 'annual' ? d.y : d.y * 10 + Math.floor(d.m / 3); };
+  var s = 0;
+  for (i = 1; i <= N; i++) {
+    if (i === N || key(i) !== key(s)) {
+      var d = ym(s), cnt = i - s, full = mode === 'annual' ? 12 : 3;
+      out.push({ label: mode === 'annual' ? String(d.y) : 'Q' + (Math.floor(d.m / 3) + 1) + ' ' + String(d.y).slice(2), sub: cnt < full ? cnt + ' mo' : '', from: s, to: i - 1 });
+      s = i;
+    }
+  }
+  return out;
+}
+function sumRange(a, p) { var t = 0; for (var i = p.from; i <= p.to; i++) t += a[i]; return t; }
+function aggVal(r, p) {
+  if (r.type === 'ratio') { var n = sumRange(r.num, p), d = sumRange(r.den, p); return d ? n / d : null; }
+  if (r.type === 'end') return r.s[p.to];
+  if (r.type === 'open') return r.s[p.from];
+  return sumRange(r.s, p);
+}
+function fmtC(v) {
+  var a = Math.abs(v), s = v < 0 ? '−' : '';
+  if (a >= 1e6) return s + (a / 1e6).toFixed(a >= 1e7 ? 1 : 2).replace(/\.?0+$/, '') + 'M';
+  if (a >= 1e3) return s + Math.round(a / 1e3).toLocaleString('en-US') + 'k';
+  return s + Math.round(a);
+}
+function niceScale(min, max, count) {
+  if (min > 0) min = 0; if (max < 0) max = 0; if (max === min) max = min + 1;
+  var raw = (max - min) / count, mag = Math.pow(10, Math.floor(Math.log10(raw))), nr = raw / mag;
+  var step = (nr < 1.5 ? 1 : nr < 3 ? 2 : nr < 7 ? 5 : 10) * mag;
+  return { lo: Math.floor(min / step) * step, hi: Math.ceil(max / step) * step, step: step };
+}
+//</model>
+
+(function () {
+  var STORE = 'plcf-model-2';
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+
+  function merge(d, s, key) {
+    if (key === 'projects') return (Array.isArray(s) && s.length === 10) ? s : d;
+    if (key === 'over') return (s && typeof s === 'object' && !Array.isArray(s)) ? s : d;
+    if (Array.isArray(d)) return d.map(function (it, i) { return (s && s[i] !== undefined) ? merge(it, s[i]) : it; });
+    if (d && typeof d === 'object') {
+      var o = {}; for (var k in d) o[k] = (s && typeof s === 'object' && k in s) ? merge(d[k], s[k], k) : d[k]; return o;
+    }
+    return (typeof s === typeof d) ? s : d;
+  }
+  function load() { return clone(DEFAULTS); }
+  var dbOn = false, readOnly = false, noReset = true;
+  function save() {}
+
+  var A = load(), M = null;
+  var state = { tab: 'summary', period: 'monthly', units: 'k' };
+  var TABS = ['summary', 'assumptions', 'pl', 'cashflow'];
+
+  var cur = function () { return A.currency.trim(); };
+  var pre = function () { return cur() ? cur() + ' ' : ''; };
+  var unitText = function (u) { return u === 'k' ? (cur() ? cur() + " '000" : "'000") : (cur() || 'Amounts'); };
+  var neg = function (a) { return a.map(function (v) { return -v; }); };
+  var total = function (a) { return a.reduce(function (x, y) { return x + y; }, 0); };
+
+  /* ---------- statements ---------- */
+  function plRows() {
+    var r = [{ head: 'Revenue' }];
+    A.streams.forEach(function (s, k) { r.push({ label: s.name, s: M.rev[k], style: 'indent' }); });
+    A.projects.forEach(function (p, k) { if (total(M.projRev[k]) !== 0) r.push({ label: p.name || 'Project ' + (k + 1), s: M.projRev[k], style: 'indent' }); });
+    r.push({ label: 'Total revenue', s: M.revT, style: 'sub' });
+    r.push({ head: 'Cost of sales' });
+    r.push({ label: 'Recurring revenue costs', s: neg(M.cogsRec), style: 'indent' });
+    r.push({ label: 'Sub-contractor costs', s: neg(M.subcT), style: 'indent' });
+    r.push({ label: 'Total cost of sales', s: neg(M.cogsT), style: 'sub' });
+    r.push({ label: 'Gross profit', s: M.gp, style: 'sub' });
+    r.push({ label: 'Gross margin', type: 'ratio', num: M.gp, den: M.revT, style: 'pct' });
+    r.push({ head: 'Operating expenses' });
+    r.push({ label: 'Salaries', s: neg(M.salT), style: 'indent' });
+    A.opex.forEach(function (o, k) { r.push({ label: o.name, s: neg(M.ox[k]), style: 'indent' }); });
+    r.push({ label: 'Total operating expenses', s: neg(M.opT), style: 'sub' });
+    r.push({ label: 'EBITDA', s: M.ebitda, style: 'total', flag: 1 });
+    r.push({ label: 'EBITDA margin', type: 'ratio', num: M.ebitda, den: M.revT, style: 'pct' });
+    r.push({ label: 'Depreciation', s: neg(M.dep) });
+    r.push({ label: 'EBIT', s: M.ebit, style: 'sub', flag: 1 });
+    r.push({ label: 'Interest expense', s: neg(M.interest) });
+    r.push({ label: 'Profit before tax', s: M.pbt, style: 'sub', flag: 1 });
+    r.push({ label: 'Tax', s: neg(M.tax) });
+    r.push({ label: 'Net profit', s: M.np, style: 'total', flag: 1 });
+    r.push({ label: 'Net margin', type: 'ratio', num: M.np, den: M.revT, style: 'pct' });
+    return r;
+  }
+  function cfRows() {
+    return [
+      { head: 'Operating activities' },
+      { label: 'Net profit', s: M.np, style: 'indent', flag: 1 },
+      { label: 'Depreciation added back', s: M.dep, style: 'indent' },
+      { label: 'Change in receivables', s: M.cashAR, style: 'indent' },
+      { label: 'Change in payables', s: M.cashAP, style: 'indent' },
+      { label: 'Change in VAT payable', s: M.dVAT, style: 'indent' },
+      { label: 'Change in tax payable', s: M.dTax, style: 'indent' },
+      { label: 'Cash from operations', s: M.cfo, style: 'sub', flag: 1 },
+      { head: 'Investing activities' },
+      { label: 'Capital expenditure', s: M.inv, style: 'sub' },
+      { head: 'Financing activities' },
+      { label: 'Equity raised', s: M.eq, style: 'indent' },
+      { label: 'Debt repayment', s: neg(M.repay), style: 'indent' },
+      { label: 'Cash from financing', s: M.fin, style: 'sub', flag: 1 },
+      { head: 'Cash position' },
+      { label: 'Net cash movement', s: M.net, style: 'sub', flag: 1 },
+      { label: 'Opening cash', s: M.openCash, type: 'open' },
+      { label: 'Closing cash', s: M.closeCash, type: 'end', style: 'total', flag: 1 },
+      { head: 'VAT' },
+      { label: 'VAT charged on sales', s: M.outVAT, style: 'indent' },
+      { label: 'VAT on costs', s: neg(M.inVAT), style: 'indent' },
+      { label: 'VAT paid to the tax authority', s: neg(M.vatPaid), style: 'indent' },
+      { label: 'VAT payable at period end', s: M.vatBal, type: 'end', style: 'sub' },
+      { head: 'Balances at period end' },
+      { label: 'Receivables (incl. VAT)', s: M.ar, type: 'end', style: 'indent' },
+      { label: 'Payables (incl. VAT)', s: M.ap, type: 'end', style: 'indent' },
+      { label: 'Debt outstanding', s: M.debtClose, type: 'end', style: 'indent' }
+    ];
+  }
+  function fmtCell(v, r, units) {
+    if (v === null || v === undefined) return '–';
+    if (r.type === 'ratio') return (v * 100).toFixed(1) + '%';
+    var n = Math.round(units === 'k' ? v / 1000 : v);
+    if (n === 0) return '–';
+    var s = Math.abs(n).toLocaleString('en-US');
+    return n < 0 ? '(' + s + ')' : s;
+  }
+  function renderTable(el, rows, mode, units, caption) {
+    var P = periods(M.N, mode);
+    var h = '<table class="fin' + (units === 'u' ? ' wide' : '') + '"><caption class="sr">' + esc(caption) + '</caption><thead><tr><th class="lab" scope="col"></th>' +
+      P.map(function (p) { return '<th scope="col">' + p.label + (p.sub ? '<small>' + p.sub + '</small>' : '') + '</th>'; }).join('') + '</tr></thead><tbody>';
+    rows.forEach(function (r) {
+      if (r.head) { h += '<tr class="head"><th class="lab" scope="row">' + esc(r.head) + '</th><td colspan="' + P.length + '"></td></tr>'; return; }
+      h += '<tr class="' + (r.style || '') + '"><th class="lab" scope="row">' + esc(r.label) + '</th>' +
+        P.map(function (p) { var v = aggVal(r, p); return '<td class="' + (r.flag && v < 0 ? 'neg' : '') + '">' + fmtCell(v, r, units) + '</td>'; }).join('') + '</tr>';
+    });
+    el.innerHTML = h + '</tbody></table>';
+  }
+  function tsv(rows, mode, units) {
+    var P = periods(M.N, mode);
+    var lines = [[' '].concat(P.map(function (p) { return p.label + (p.sub ? ' (' + p.sub + ')' : ''); })).join('\t')];
+    rows.forEach(function (r) {
+      if (r.head) { lines.push(r.head); return; }
+      lines.push([r.label].concat(P.map(function (p) {
+        var v = aggVal(r, p); if (v === null) return '';
+        return r.type === 'ratio' ? (v * 100).toFixed(1) + '%' : String(Math.round(units === 'k' ? v / 1000 : v));
+      })).join('\t'));
+    });
+    return lines.join('\n');
+  }
+
+  /* ---------- charts ---------- */
+  function drawChart(host, cfg) {
+    var bars = cfg.bars || [], lines = cfg.lines || [], labels = cfg.labels, n = labels.length;
+    var W = 760, H = 270, L = 50, R = 12, T = 12, B = 28, iw = W - L - R, ih = H - T - B;
+    var vals = [0]; bars.concat(lines).forEach(function (s) { vals = vals.concat(s.v); });
+    var sc = niceScale(Math.min.apply(null, vals), Math.max.apply(null, vals), 4);
+    var y = function (v) { return T + ih * (1 - (v - sc.lo) / (sc.hi - sc.lo)); };
+    var step = iw / n, x = function (i) { return L + step * (i + 0.5); };
+    var bw = Math.min(step * 0.62, 24), stride = n <= 16 ? 1 : n <= 28 ? 2 : 3;
+    var g = '', k, cnt = Math.round((sc.hi - sc.lo) / sc.step);
+    for (k = 0; k <= cnt; k++) {
+      var v = sc.lo + k * sc.step, yy = y(v);
+      g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" class="grid' + (Math.abs(v) < 1e-9 ? ' zero' : '') + '"/>' +
+        '<text x="' + (L - 8) + '" y="' + (yy + 4) + '" text-anchor="end" class="ax">' + fmtC(v) + '</text>';
+    }
+    for (var i = 0; i < n; i += stride) g += '<text x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="middle" class="ax">' + labels[i] + '</text>';
+    bars.forEach(function (b) {
+      b.v.forEach(function (val, i) {
+        var y0 = y(0), y1 = y(val);
+        g += '<rect x="' + (x(i) - bw / 2) + '" y="' + Math.min(y0, y1) + '" width="' + bw + '" height="' + Math.abs(y1 - y0) + '" style="fill:' + b.color + '"/>';
+      });
+    });
+    lines.forEach(function (l, li) {
+      var d = l.v.map(function (val, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(val).toFixed(1); }).join(' ');
+      if (cfg.area && li === 0) g += '<path d="' + d + ' L' + x(n - 1).toFixed(1) + ' ' + y(0) + ' L' + x(0).toFixed(1) + ' ' + y(0) + ' Z" style="fill:' + l.color + ';fill-opacity:0.14;stroke:none"/>';
+      g += '<path d="' + d + '" style="fill:none;stroke:' + l.color + ';stroke-width:2.2;stroke-linejoin:round' + (l.dash ? ';stroke-dasharray:' + l.dash : '') + '"/>' +
+        '<circle cx="' + x(n - 1) + '" cy="' + y(l.v[n - 1]) + '" r="3.5" style="fill:var(--surface);stroke:' + l.color + ';stroke-width:2"/>';
+    });
+    g += '<line class="guide" x1="0" x2="0" y1="' + T + '" y2="' + (T + ih) + '" visibility="hidden"/>' +
+      '<rect class="hit" x="' + L + '" y="' + T + '" width="' + iw + '" height="' + ih + '" fill="transparent"/>';
+    var ser = bars.concat(lines);
+    var legend = '<div class="legend"><span class="m"></span>' + ser.map(function (s, i) {
+      return '<span class="li"><i class="sw" style="background:' + s.color + '"></i>' + esc(s.name) + ' <b data-i="' + i + '"></b></span>';
+    }).join('') + '</div>';
+    host.innerHTML = legend + '<div class="cbox"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(cfg.title) + '">' + g + '</svg></div>';
+    var svg = host.querySelector('svg'), guide = host.querySelector('.guide'), mEl = host.querySelector('.m');
+    function show(i, withGuide) {
+      mEl.textContent = labels[i];
+      ser.forEach(function (s, j) { host.querySelector('b[data-i="' + j + '"]').textContent = fmtC(s.v[i]); });
+      if (withGuide) { guide.setAttribute('x1', x(i)); guide.setAttribute('x2', x(i)); guide.setAttribute('visibility', 'visible'); }
+      else guide.setAttribute('visibility', 'hidden');
+    }
+    function at(e) {
+      var rc = svg.getBoundingClientRect(), vx = (e.clientX - rc.left) / rc.width * W;
+      show(Math.max(0, Math.min(n - 1, Math.floor((vx - L) / step))), true);
+    }
+    svg.addEventListener('pointermove', at);
+    svg.addEventListener('pointerdown', at);
+    svg.addEventListener('pointerleave', function () { show(n - 1, false); });
+    show(n - 1, false);
+  }
+
+  /* ---------- summary ---------- */
+  function renderSummary() {
+    var N = M.N, last = M.labels[N - 1], P = pre();
+    var rev = total(M.revT), gp = total(M.gp), eb = total(M.ebitda), np = total(M.np);
+    var mi = 0; M.closeCash.forEach(function (v, i) { if (v < M.closeCash[mi]) mi = i; });
+    var minC = M.closeCash[mi], neg0 = M.closeCash.findIndex(function (v) { return v < 0; });
+    var ebPos = M.ebitda.findIndex(function (v) { return v > 0; });
+    var msg = neg0 >= 0
+      ? 'Cash falls below zero in ' + M.labels[neg0] + '. The lowest balance is ' + P + fmtC(minC) + ' in ' + M.labels[mi] + '.'
+      : 'Cash stays positive throughout. The lowest balance is ' + P + fmtC(minC) + ' in ' + M.labels[mi] + '.';
+    msg += ebPos >= 0 ? (ebPos === 0 ? ' EBITDA is positive from the first month.' : ' EBITDA first turns positive in ' + M.labels[ebPos] + '.') : ' EBITDA stays negative through ' + last + '.';
+    var st = $('status'); st.textContent = msg; st.className = 'status ' + (neg0 >= 0 ? 'warn' : 'ok');
+    var pc = function (a, b) { return b ? (a / b * 100).toFixed(1) + '%' : '–'; };
+    var tiles = [
+      ['Revenue', P + fmtC(rev), N + ' months to ' + last, rev < 0],
+      ['Gross margin', pc(gp, rev), 'Gross profit ' + P + fmtC(gp), false],
+      ['EBITDA', P + fmtC(eb), pc(eb, rev) + ' margin', eb < 0],
+      ['Net profit', P + fmtC(np), pc(np, rev) + ' margin', np < 0],
+      ['Closing cash', P + fmtC(M.closeCash[N - 1]), 'At ' + last, M.closeCash[N - 1] < 0],
+      ['Lowest cash', P + fmtC(minC), 'In ' + M.labels[mi], minC < 0]
+    ];
+    $('kpis').innerHTML = tiles.map(function (t) {
+      return '<div class="kpi"><div class="k">' + t[0] + '</div><div class="v' + (t[3] ? ' neg' : '') + '">' + esc(t[1]) + '</div><div class="s">' + esc(t[2]) + '</div></div>';
+    }).join('');
+    drawChart($('ch-pl'), { title: 'Revenue, EBITDA and net profit by month', labels: M.labels,
+      bars: [{ name: 'Revenue', v: M.revT, color: 'var(--bar)' }],
+      lines: [{ name: 'EBITDA', v: M.ebitda, color: 'var(--accent)' }, { name: 'Net profit', v: M.np, color: 'var(--ink)', dash: '5 4' }] });
+    drawChart($('ch-cash'), { title: 'Closing cash balance by month', labels: M.labels, area: true,
+      lines: [{ name: 'Closing cash', v: M.closeCash, color: 'var(--accent)' }] });
+    $('sum-u').textContent = unitText('k');
+    renderTable($('sum-table'), [
+      { label: 'Total revenue', s: M.revT },
+      { label: 'Gross profit', s: M.gp },
+      { label: 'EBITDA', s: M.ebitda, flag: 1 },
+      { label: 'Net profit', s: M.np, flag: 1, style: 'sub' },
+      { label: 'Cash from operations', s: M.cfo, flag: 1 },
+      { label: 'Closing cash', s: M.closeCash, type: 'end', style: 'total', flag: 1 }
+    ], 'annual', 'k', 'Year by year summary');
+  }
+
+  function renderStatements() {
+    renderTable($('pl-table'), plRows(), state.period, state.units, 'Profit and loss');
+    renderTable($('cf-table'), cfRows(), state.period, state.units, 'Cash flow');
+    $('cap').textContent = (state.tab === 'cashflow' ? 'Cash flow' : 'Profit and loss') + ', ' + unitText(state.units);
+  }
+  function renderHeader() {
+    $('sub').textContent = (clientName ? clientName + ' \u00b7 ' : '') + 'Monthly forecast, Oct-26 to ' + M.labels[M.N - 1] + (cur() ? ' · ' + cur() : '');
+  }
+  function refresh() { save(); M = compute(A); renderHeader(); renderSummary(); renderStatements(); }
+
+  /* ---------- assumptions form ---------- */
+  var idOf = function (path) { return 'a-' + path.replace(/\./g, '-'); };
+  function num(path, val, o) {
+    o = o || {};
+    return '<input type="number" inputmode="decimal" step="any" id="' + idOf(path) + '" data-path="' + path + '"' +
+      (o.cls ? ' class="' + o.cls + '"' : '') +
+      (o.min !== undefined ? ' min="' + o.min + '" data-min="' + o.min + '"' : '') +
+      (o.max !== undefined ? ' max="' + o.max + '" data-max="' + o.max + '"' : '') +
+      (o.int ? ' data-kind="int"' : '') + (o.aria ? ' aria-label="' + esc(o.aria) + '"' : '') + ' value="' + val + '">';
+  }
+  function txt(path, val, aria, ph) {
+    return '<input type="text" id="' + idOf(path) + '" data-path="' + path + '" data-kind="text" aria-label="' + esc(aria) + '"' + (ph ? ' placeholder="' + esc(ph) + '"' : '') + ' value="' + esc(val) + '">';
+  }
+  function monthOpts(sel) { var h = ''; for (var i = 0; i < 39; i++) h += '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + ML(i) + '</option>'; return h; }
+  function selMonth(path, val, aria) {
+    return '<select id="' + idOf(path) + '" data-path="' + path + '" data-kind="int" aria-label="' + esc(aria) + '">' + monthOpts(val) + '</select>';
+  }
+  function frow(path, label, hint, input) {
+    return '<div class="frow"><label for="' + idOf(path) + '">' + label + (hint ? '<small>' + hint + '</small>' : '') + '</label>' + input + '</div>';
+  }
+
+  /* projects: ten fixed slots, ten stages each */
+  function buildProjects() {
+    $('projects').innerHTML = A.projects.map(function (p, k) {
+      var has = p.stages.some(function (s) { return s.charge || s.sub; });
+      var rows = p.stages.map(function (s, j) {
+        var b = 'projects.' + k + '.stages.' + j + '.', w = 'Project ' + (k + 1) + ' stage ' + (j + 1);
+        return '<tr><td class="sn">' + (j + 1) + '</td><td>' + txt(b + 'name', s.name, w + ' name', 'Stage ' + (j + 1)) + '</td><td>' + num(b + 'charge', s.charge, { min: 0, aria: w + ' charge to client' }) +
+          '</td><td>' + num(b + 'sub', s.sub, { min: 0, aria: w + ' sub-contractor costs' }) + '</td><td>' + selMonth(b + 'month', s.month, w + ' invoice month') +
+          '</td><td>' + num(b + 'days', s.days, { min: 0, max: 365, int: true, cls: 'days', aria: w + ' payment days' }) + '</td><td class="ci" id="ci-' + k + '-' + j + '"></td></tr>';
+      }).join('');
+      return '<details class="proj"' + (has ? ' open' : '') + '><summary><span class="pn" id="pn-' + k + '"></span><span class="ps" id="ps-' + k + '"></span></summary><div class="pbody">' +
+        frow('projects.' + k + '.name', 'Project name', '', txt('projects.' + k + '.name', p.name, 'Project ' + (k + 1) + ' name')) +
+        '<div class="tw" style="border:0"><table class="itab stg"><thead><tr><th></th><th>Stage</th><th>Charge to client</th><th>Sub-contractor costs</th><th>Invoice month</th><th>Payment days</th><th>Cash in</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></details>';
+    }).join('');
+    syncProjects();
+  }
+  function syncProjects() {
+    var N = monthsFor(A.horizonEnd);
+    A.projects.forEach(function (p, k) {
+      var ch = 0, sb = 0;
+      p.stages.forEach(function (s, j) { ch += s.charge; sb += s.sub; var c = $('ci-' + k + '-' + j); if (c) c.textContent = cashInLabel(s, N); });
+      $('pn-' + k).textContent = p.name || ('Project ' + (k + 1));
+      $('ps-' + k).textContent = (ch || sb)
+        ? fmtC(ch) + ' charged · ' + fmtC(sb) + ' sub-contractors' + (ch ? ' · ' + ((ch - sb) / ch * 100).toFixed(1) + '% margin' : '')
+        : 'No stages entered';
+    });
+  }
+
+  /* month-by-month grids: operating costs and salaries */
+  var GRIDS = {
+    ox: { host: 'oxgrid', title: 'Operating cost', fb: 'Cost line ', list: function () { return A.opex; }, base: function (o, t) { return o.start * Math.pow(1 + o.growth / 100, t); } },
+    sal: { host: 'salgrid', title: 'Employee', fb: 'Employee ', list: function () { return A.employees; }, base: function (e, t) { return t >= e.startIdx ? e.base : 0; } }
+  };
+  function buildGrid(key) {
+    var G = GRIDS[key], N = monthsFor(A.horizonEnd), t;
+    var h = '<div class="tw"><table class="ogrid"><thead><tr><th class="lab" scope="col">' + G.title + '</th>';
+    for (t = 0; t < N; t++) h += '<th scope="col">' + ML(t) + '</th>';
+    h += '</tr></thead><tbody>';
+    G.list().forEach(function (o, k) {
+      h += '<tr><th class="lab" scope="row"><span id="gn-' + key + '-' + k + '"></span><button class="lnk" type="button" data-greset="' + key + '" data-gk="' + k + '">Reset</button></th>';
+      for (t = 0; t < N; t++) h += '<td><input type="number" inputmode="decimal" step="any" min="0" id="g-' + key + '-' + k + '-' + t + '" data-g="' + key + '" data-gk="' + k + '" data-gt="' + t + '" aria-label="' + G.fb + (k + 1) + ' ' + ML(t) + '"></td>';
+      h += '</tr>';
+    });
+    $(G.host).innerHTML = h + '</tbody></table></div>';
+    shownN = N;
+    updateGrid(key);
+    applyAccess();
+  }
+  function updateGrid(key) {
+    var G = GRIDS[key], N = monthsFor(A.horizonEnd);
+    G.list().forEach(function (o, k) {
+      $('gn-' + key + '-' + k).textContent = o.name || (G.fb + (k + 1));
+      for (var t = 0; t < N; t++) {
+        var el = $('g-' + key + '-' + k + '-' + t); if (!el) continue;
+        var ov = o.over && o.over[t] !== undefined;
+        el.classList.toggle('ov', ov);
+        if (document.activeElement !== el) el.value = Math.round(ov ? o.over[t] : G.base(o, t));
+      }
+    });
+  }
+
+  function buildAssumptions() {
+    var sRows = A.streams.map(function (s, k) {
+      var p = 'streams.' + k + '.';
+      return '<tr><td>' + txt(p + 'name', s.name, 'Revenue stream ' + (k + 1) + ' name') + '</td><td>' + num(p + 'start', s.start, { min: 0, aria: 'Revenue stream ' + (k + 1) + ' first-month revenue' }) +
+        '</td><td>' + num(p + 'growth', s.growth, { min: -50, max: 100, aria: 'Revenue stream ' + (k + 1) + ' monthly growth' }) +
+        '</td><td>' + num(p + 'cogs', s.cogs, { min: 0, max: 100, aria: 'Revenue stream ' + (k + 1) + ' cost of sales' }) + '</td></tr>';
+    }).join('');
+    var eRows = A.employees.map(function (e, k) {
+      var p = 'employees.' + k + '.';
+      return '<tr><td>' + txt(p + 'name', e.name, 'Employee ' + (k + 1) + ' name', 'Employee ' + (k + 1)) + '</td><td>' + num(p + 'base', e.base, { min: 0, aria: 'Employee ' + (k + 1) + ' monthly salary' }) +
+        '</td><td>' + selMonth(p + 'startIdx', e.startIdx, 'Employee ' + (k + 1) + ' start month') + '</td></tr>';
+    }).join('');
+    var oRows = A.opex.map(function (o, k) {
+      var p = 'opex.' + k + '.';
+      return '<tr><td>' + txt(p + 'name', o.name, 'Cost line ' + (k + 1) + ' name') + '</td><td>' + num(p + 'start', o.start, { min: 0, aria: 'Cost line ' + (k + 1) + ' first-month amount' }) +
+        '</td><td>' + num(p + 'growth', o.growth, { min: -50, max: 100, aria: 'Cost line ' + (k + 1) + ' monthly growth' }) + '</td></tr>';
+    }).join('');
+    var hz = [2027, 2028, 2029].map(function (yr) {
+      return '<option value="' + yr + '"' + (A.horizonEnd === yr ? ' selected' : '') + '>December ' + yr + ' (' + monthsFor(yr) + ' months)</option>';
+    }).join('');
+    $('afields').innerHTML = '<div class="agrid">' +
+      '<div class="card"><h2>General</h2>' +
+        frow('currency', 'Currency label', '', txt('currency', A.currency, 'Currency label')) +
+        frow('horizonEnd', 'Forecast runs to', 'Starts October 2026', '<select id="a-horizonEnd" data-path="horizonEnd" data-kind="int">' + hz + '</select>') +
+        frow('openCash', 'Opening cash', 'Balance at 1 Oct 2026', num('openCash', A.openCash, { min: 0 })) + '</div>' +
+      '<div class="card wide"><h2>Projects</h2><p class="hint">Ten project slots, each with up to ten stages. Amounts exclude VAT. A stage is recognised as revenue, and its sub-contractor cost charged to cost of sales, in the invoice month. The client pays after the payment days, and sub-contractors are paid in that same month. Stages with no amounts are ignored.</p><div id="projects"></div></div>' +
+      '<div class="card wide"><h2>Recurring revenue and cost of sales</h2><p class="hint">Optional. Set the first-month revenue to zero if all revenue comes from projects.</p><div class="tw" style="border:0"><table class="itab"><thead><tr><th>Stream</th><th>First-month revenue</th><th>Growth per month (%)</th><th>Cost of sales (% of revenue)</th></tr></thead><tbody>' + sRows + '</tbody></table></div></div>' +
+      '<div class="card wide"><h2>Salaries</h2><p class="hint">Up to 20 employees. Enter a monthly salary and a start month to fill the grid, then change any month by typing over it. Set a month to 0 when someone leaves. Salaries are paid in the month they are incurred and carry no VAT.</p>' +
+        '<div class="tw" style="border:0"><table class="itab"><thead><tr><th>Employee</th><th>Monthly salary</th><th>Starts in</th></tr></thead><tbody>' + eRows + '</tbody></table></div>' +
+        '<h3>Salary by month</h3><p class="hint">Highlighted cells are your own figures. Clear a cell, or use Reset, to go back to the monthly salary above.</p><div id="salgrid"></div></div>' +
+      '<div class="card wide"><h2>Operating costs</h2><p class="hint">These lines carry VAT and are paid after the payable days. The first-month amount and growth fill the grid, and any month can be overridden.</p>' +
+        '<div class="tw" style="border:0"><table class="itab"><thead><tr><th>Cost line</th><th>First-month amount</th><th>Growth per month (%)</th></tr></thead><tbody>' + oRows + '</tbody></table></div>' +
+        '<h3>Operating costs by month</h3><p class="hint">Highlighted cells are your own figures. Clear a cell, or use Reset, to go back to the formula.</p><div id="oxgrid"></div></div>' +
+      '<div class="card"><h2>Working capital</h2><p class="hint">Applies to recurring revenue and operating costs. Projects use the payment days on each stage.</p>' +
+        frow('dso', 'Receivable days', 'Days customers take to pay', num('dso', A.dso, { min: 0, max: 365 })) +
+        frow('dpo', 'Payable days', 'Days taken to pay suppliers', num('dpo', A.dpo, { min: 0, max: 365 })) +
+        frow('openAR', 'Opening receivables', 'Including VAT', num('openAR', A.openAR, { min: 0 })) +
+        frow('openAP', 'Opening payables', 'Including VAT', num('openAP', A.openAP, { min: 0 })) + '</div>' +
+      '<div class="card"><h2>VAT</h2><p class="hint">Charged on all sales and costs except salaries. Paid in March, June, September and December.</p>' +
+        frow('vat', 'VAT rate (%)', '', num('vat', A.vat, { min: 0, max: 100 })) +
+        frow('openVAT', 'Opening VAT payable', 'Included in the first payment (Dec-26)', num('openVAT', A.openVAT)) + '</div>' +
+      '<div class="card"><h2>Capital spending</h2>' +
+        frow('capex', 'Capex per month', '', num('capex', A.capex, { min: 0 })) +
+        frow('lifeYears', 'Asset life (years)', 'Straight-line depreciation', num('lifeYears', A.lifeYears, { min: 0.5, max: 30 })) +
+        frow('existingDep', 'Existing depreciation per month', 'On assets held today', num('existingDep', A.existingDep, { min: 0 })) + '</div>' +
+      '<div class="card"><h2>Debt and equity</h2>' +
+        frow('debtOpen', 'Opening debt', '', num('debtOpen', A.debtOpen, { min: 0 })) +
+        frow('debtRepay', 'Repayment per month', '', num('debtRepay', A.debtRepay, { min: 0 })) +
+        frow('debtRate', 'Interest rate (% a year)', '', num('debtRate', A.debtRate, { min: 0, max: 100 })) +
+        frow('equity', 'Equity raised', 'One-off injection', num('equity', A.equity, { min: 0 })) +
+        frow('equityIdx', 'Equity received in', '', '<select id="a-equityIdx" data-path="equityIdx" data-kind="int"></select>') + '</div>' +
+      '<div class="card"><h2>Corporate tax</h2>' +
+        frow('taxRate', 'Tax rate (%)', 'On positive monthly profit', num('taxRate', A.taxRate, { min: 0, max: 100 })) +
+        frow('taxLag', 'Tax paid after (months)', 'Delay between charge and payment', num('taxLag', A.taxLag, { min: 0, max: 36, int: true })) + '</div>' +
+      '</div>';
+    rebuildEquity(); buildProjects(); buildGrid('sal'); buildGrid('ox');
+  }
+  function rebuildEquity() {
+    var sel = $('a-equityIdx'), N = monthsFor(A.horizonEnd), h = '';
+    if (A.equityIdx >= N) A.equityIdx = N - 1;
+    for (var i = 0; i < N; i++) h += '<option value="' + i + '"' + (i === A.equityIdx ? ' selected' : '') + '>' + ML(i) + '</option>';
+    sel.innerHTML = h;
+  }
+  function setPath(path, v) {
+    var p = path.split('.'), o = A;
+    for (var i = 0; i < p.length - 1; i++) o = o[p[i]];
+    o[p[p.length - 1]] = v;
+  }
+  $('afields').addEventListener('input', function (e) {
+    var el = e.target, ds = el.dataset || {};
+    if (ds.g) {
+      var G = GRIDS[ds.g], o = G.list()[+ds.gk], t = +ds.gt;
+      if (!o.over) o.over = {};
+      if (el.value === '') { delete o.over[t]; el.classList.remove('ov'); }
+      else { var gv = parseFloat(el.value); if (isNaN(gv)) gv = 0; o.over[t] = Math.max(0, gv); el.classList.add('ov'); }
+      touch(ds.g === 'ox' ? 'opex' : 'employees');
+      refresh(); return;
+    }
+    var path = ds.path; if (!path) return;
+    var kind = ds.kind, v;
+    if (kind === 'text') v = el.value;
+    else {
+      v = parseFloat(el.value); if (isNaN(v)) v = 0;
+      if (ds.min !== undefined) v = Math.max(v, +ds.min);
+      if (ds.max !== undefined) v = Math.min(v, +ds.max);
+      if (kind === 'int') v = Math.round(v);
+    }
+    setPath(path, v);
+    if (path === 'horizonEnd') { rebuildEquity(); buildGrid('sal'); buildGrid('ox'); syncProjects(); }
+    if (/^projects\./.test(path)) syncProjects();
+    if (/^opex\.\d+\./.test(path)) updateGrid('ox');
+    if (/^employees\.\d+\./.test(path)) updateGrid('sal');
+    touch(sectionOfPath(path));
+    refresh();
+  });
+  $('afields').addEventListener('change', function (e) {
+    var el = e.target;
+    if (el.dataset && el.dataset.g && el.value === '') updateGrid(el.dataset.g);
+  });
+  $('afields').addEventListener('click', function (e) {
+    var rl = e.target.closest ? e.target.closest('[data-greset]') : null;
+    if (!rl) return;
+    var key = rl.dataset.greset, o = GRIDS[key].list()[+rl.dataset.gk];
+    o.over = {}; updateGrid(key); touch(key === 'ox' ? 'opex' : 'employees'); refresh();
+  });
+
+  /* ---------- shared storage on Supabase: one row per section, reached only through two token-checked functions ---------- */
+  var SECTIONS = ['general', 'streams', 'opex', 'employees', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9'];
+  var SCALARS = ['currency', 'horizonEnd', 'openCash', 'vat', 'openVAT', 'capex', 'lifeYears', 'existingDep', 'debtOpen', 'debtRepay', 'debtRate', 'equity', 'equityIdx', 'taxRate', 'taxLag', 'dso', 'dpo', 'openAR', 'openAP'];
+  var CFG = window.APP_CONFIG || {};
+  var TOKEN = new URLSearchParams(location.search).get('m') || '';
+  var clientName = '';
+  var dirty = {}, busy = {}, stamps = {}, saveTimer = null, retryTimer = null, shownN = 0;
+  function canon(o) {
+    return JSON.stringify(o, function (k, v) {
+      if (v && typeof v === 'object' && !Array.isArray(v)) { var s = {}; Object.keys(v).sort().forEach(function (x) { s[x] = v[x]; }); return s; }
+      return v;
+    });
+  }
+  function getPath(path) {
+    var o = A, p = path.split('.');
+    for (var i = 0; i < p.length; i++) { if (o === undefined || o === null) return undefined; o = o[p[i]]; }
+    return o;
+  }
+  function sectionOfPath(path) {
+    var m = /^projects\.(\d+)\./.exec(path); if (m) return 'p' + m[1];
+    var root = path.split('.')[0];
+    return (root === 'streams' || root === 'opex' || root === 'employees') ? root : 'general';
+  }
+  function sectionData(id) {
+    if (id === 'general') { var g = {}; SCALARS.forEach(function (k) { g[k] = A[k]; }); return g; }
+    if (id === 'streams' || id === 'opex' || id === 'employees') return { items: clone(A[id]) };
+    return clone(A.projects[+id.slice(1)]);
+  }
+  function defaultSection(id) {
+    if (id === 'general') { var g = {}; SCALARS.forEach(function (k) { g[k] = DEFAULTS[k]; }); return g; }
+    if (id === 'streams' || id === 'opex' || id === 'employees') return { items: clone(DEFAULTS[id]) };
+    return clone(DEFAULTS.projects[+id.slice(1)]);
+  }
+  function applySection(id, data) {
+    if (id === 'general') { SCALARS.forEach(function (k) { if (data && typeof data[k] === typeof DEFAULTS[k]) A[k] = data[k]; }); return; }
+    if (id === 'streams' || id === 'opex' || id === 'employees') { A[id] = merge(DEFAULTS[id], data && data.items); return; }
+    A.projects[+id.slice(1)] = merge(DEFAULTS.projects[+id.slice(1)], data);
+  }
+  function setSync(text, warn) { var s = $('sync'); s.textContent = text; s.className = 'sync' + (warn ? ' warn' : ''); }
+  function applyAccess() { $('reset').hidden = true; }
+
+  function rpc(name, args) {
+    var h = { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY };
+    if (/^eyJ/.test(CFG.SUPABASE_KEY)) h.Authorization = 'Bearer ' + CFG.SUPABASE_KEY;
+    return fetch(CFG.SUPABASE_URL + '/rest/v1/rpc/' + name, { method: 'POST', headers: h, body: JSON.stringify(args) })
+      .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); });
+  }
+  function touch(id) {
+    if (!dbOn) return;
+    dirty[id] = true; clearTimeout(saveTimer); saveTimer = setTimeout(flush, 700); setSync('Saving…');
+  }
+  function touchAll() {
+    if (!dbOn) return;
+    SECTIONS.forEach(function (s) { dirty[s] = true; });
+    clearTimeout(saveTimer); saveTimer = setTimeout(flush, 300); setSync('Saving…');
+  }
+  function flush() {
+    SECTIONS.forEach(function (id) {
+      if (!dirty[id] || busy[id]) return;
+      dirty[id] = false; busy[id] = true;
+      rpc('save_section', { p_token: TOKEN, p_section: id, p_data: sectionData(id) }).then(function (stamp) {
+        busy[id] = false; stamps[id] = stamp; afterWrite();
+      }, function () {
+        busy[id] = false; dirty[id] = true;
+        setSync('Could not save. Check your connection. Retrying…', true);
+        clearTimeout(retryTimer); retryTimer = setTimeout(flush, 5000);
+      });
+    });
+  }
+  function afterWrite() {
+    var pending = SECTIONS.some(function (s) { return dirty[s] || busy[s]; });
+    if (pending) flush(); else setSync('Saved. Everyone with this link sees these numbers.');
+  }
+  function pushState() {
+    if (monthsFor(A.horizonEnd) !== shownN) { rebuildEquity(); buildGrid('sal'); buildGrid('ox'); }
+    var ae = document.activeElement;
+    Array.prototype.forEach.call(document.querySelectorAll('#afields [data-path]'), function (el) {
+      if (el === ae) return;
+      var v = getPath(el.dataset.path); if (v !== undefined) el.value = v;
+    });
+    updateGrid('ox'); updateGrid('sal'); syncProjects(); refresh();
+  }
+  function applyRemote(model, first) {
+    var secs = (model && model.sections) || {}, changed = false;
+    SECTIONS.forEach(function (id) {
+      if (dirty[id] || busy[id]) return;
+      var s = secs[id], remote;
+      if (!s) { if (!first) return; remote = defaultSection(id); }
+      else { if (!first && stamps[id] === s.updated_at) return; stamps[id] = s.updated_at; remote = s.data; }
+      if (canon(remote) === canon(sectionData(id))) return;
+      applySection(id, remote); changed = true;
+    });
+    return changed;
+  }
+  function poll() {
+    if (!dbOn) return;
+    rpc('get_model', { p_token: TOKEN }).then(function (model) {
+      if (model && applyRemote(model, false)) pushState();
+    }, function () {});
+  }
+  function startSync() {
+    var boot = $('boot');
+    if (!CFG.SUPABASE_URL || !CFG.SUPABASE_KEY) { boot.textContent = 'This app is not connected to its database yet.'; return; }
+    if (!TOKEN) { boot.textContent = 'Open the link you were sent to see your model.'; return; }
+    rpc('get_model', { p_token: TOKEN }).then(function (model) {
+      if (!model) { boot.textContent = 'This link is not valid. Ask for a new one.'; return; }
+      clientName = model.client || ''; dbOn = true;
+      applyRemote(model, true);
+      buildAssumptions(); refresh();
+      document.body.classList.remove('loading');
+      setSync('Shared model. Changes save automatically for everyone with this link.');
+      setInterval(poll, 8000);
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
+      window.addEventListener('beforeunload', function (e) {
+        if (SECTIONS.some(function (s) { return dirty[s] || busy[s]; })) { e.preventDefault(); e.returnValue = ''; }
+      });
+    }, function () { boot.textContent = 'Could not reach the database. Check your connection and reload.'; });
+  }
+
+  /* ---------- chrome ---------- */
+  function setTab(t) {
+    if (TABS.indexOf(t) < 0) t = 'summary';
+    state.tab = t;
+    TABS.forEach(function (k) {
+      $('tab-' + k).hidden = k !== t;
+      document.querySelector('[data-tab="' + k + '"]').setAttribute('aria-selected', k === t ? 'true' : 'false');
+    });
+    $('bar').hidden = !(t === 'pl' || t === 'cashflow');
+    if (M) $('cap').textContent = (t === 'cashflow' ? 'Cash flow' : 'Profit and loss') + ', ' + unitText(state.units);
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-tab]'), function (b) {
+    b.addEventListener('click', function () { setTab(b.dataset.tab); });
+  });
+  function seg(attr, key) {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-' + attr + ']'), function (b) {
+      b.addEventListener('click', function () {
+        state[key] = b.dataset[attr];
+        Array.prototype.forEach.call(document.querySelectorAll('[data-' + attr + ']'), function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+        renderStatements();
+      });
+    });
+  }
+  seg('period', 'period'); seg('units', 'units');
+
+  function copyText(t) {
+    return (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { return true; }, function () {
+      try {
+        var ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta); ta.select(); var ok = document.execCommand('copy'); ta.remove(); return ok;
+      } catch (e) { return false; }
+    });
+  }
+  var csTimer;
+  $('copy').addEventListener('click', function () {
+    var rows = state.tab === 'cashflow' ? cfRows() : plRows();
+    copyText(tsv(rows, state.period, state.units)).then(function (ok) {
+      $('cs').textContent = ok ? 'Copied. Paste into a spreadsheet.' : 'Copy is not available here.';
+      clearTimeout(csTimer); csTimer = setTimeout(function () { $('cs').textContent = ''; }, 2600);
+    });
+  });
+  var armed = false, armTimer;
+  $('reset').addEventListener('click', function () {
+    var b = $('reset');
+    if (!armed) {
+      armed = true; b.textContent = dbOn ? 'Click again to reset for everyone' : 'Click again to restore the defaults';
+      armTimer = setTimeout(function () { armed = false; b.textContent = 'Reset assumptions'; }, 4000);
+      return;
+    }
+    clearTimeout(armTimer); armed = false; b.textContent = 'Reset assumptions';
+    A = clone(DEFAULTS); buildAssumptions(); refresh(); touchAll();
+  });
+
+  window.addEventListener('hashchange', function () { setTab((location.hash || '').slice(1)); });
+  buildAssumptions();
+  refresh();
+  setTab((location.hash || '').slice(1) || 'summary');
+  startSync();
+})();
+</script>
+</body>
+</html>
