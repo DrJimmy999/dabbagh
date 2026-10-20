@@ -213,7 +213,7 @@ input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
       <h1>P&amp;L and Cash Flow Model</h1>
       <p class="sub" id="sub"></p>
     </div>
-    <div class="hr"><span class="sync" id="sync" role="status"></span><span class="chip">Illustrative figures</span></div>
+    <div class="hr"><span class="sync" id="sync" role="status"></span><span class="chip">Illustrative figures</span> <button class="btn" type="button" onclick="forgetThisDevice()" title="Stop opening this model automatically on this device">Forget on this device</button></div>
   </header>
 
   <nav class="tabs" role="tablist" aria-label="Model sections">
@@ -866,7 +866,11 @@ function niceScale(min, max, count) {
   var SECTIONS = ['general', 'streams', 'opex', 'employees', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9'];
   var SCALARS = ['currency', 'horizonEnd', 'openCash', 'vat', 'openVAT', 'capex', 'lifeYears', 'existingDep', 'debtOpen', 'debtRepay', 'debtRate', 'equity', 'equityIdx', 'taxRate', 'taxLag', 'dso', 'dpo', 'openAR', 'openAP'];
   var CFG = window.APP_CONFIG || {};
-  var TOKEN = new URLSearchParams(location.search).get('m') || '';
+  var KEEP = 'plcf-link';
+  function keptGet() { try { return localStorage.getItem(KEEP) || ''; } catch (e) { return ''; } }
+  function keptSet(v) { try { if (v) localStorage.setItem(KEEP, v); else localStorage.removeItem(KEEP); } catch (e) {} }
+  var FROM_URL = new URLSearchParams(location.search).get('m') || '';
+  var TOKEN = FROM_URL || keptGet();
   var clientName = '';
   var dirty = {}, busy = {}, stamps = {}, saveTimer = null, retryTimer = null, shownN = 0;
   function canon(o) {
@@ -902,6 +906,7 @@ function niceScale(min, max, count) {
   }
   function setSync(text, warn) { var s = $('sync'); s.textContent = text; s.className = 'sync' + (warn ? ' warn' : ''); }
   function applyAccess() { $('reset').hidden = true; }
+  window.forgetThisDevice = function () { keptSet(''); location.href = location.pathname; };
 
   function rpc(name, args) {
     var h = { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY };
@@ -965,9 +970,11 @@ function niceScale(min, max, count) {
   function startSync() {
     var boot = $('boot');
     if (!CFG.SUPABASE_URL || !CFG.SUPABASE_KEY) { boot.textContent = 'This app is not connected to its database yet.'; return; }
-    if (!TOKEN) { boot.textContent = 'Open the link you were sent to see your model.'; return; }
+    if (!TOKEN) { boot.textContent = 'Open the link you were sent to see your model. After that, this address will open it on this device.'; return; }
     rpc('get_model', { p_token: TOKEN }).then(function (model) {
-      if (!model) { boot.textContent = 'This link is not valid. Ask for a new one.'; return; }
+      if (!model) { if (!FROM_URL) keptSet(''); boot.textContent = 'This link is not valid. Ask for a new one.'; return; }
+      keptSet(TOKEN);
+      if (FROM_URL) { try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {} }
       clientName = model.client || ''; dbOn = true;
       applyRemote(model, true);
       buildAssumptions(); refresh();
