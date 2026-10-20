@@ -220,7 +220,7 @@ input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
     <button class="tab" role="tab" data-tab="summary" aria-selected="true">Summary</button>
     <button class="tab" role="tab" data-tab="assumptions" aria-selected="false">Assumptions</button>
     <button class="tab" role="tab" data-tab="pl" aria-selected="false">Profit and loss</button>
-    <button class="tab" role="tab" data-tab="cashflow" aria-selected="false">Cash flow</button>
+    <button class="tab" role="tab" data-tab="cashflow" aria-selected="false">Cash forecast</button>
   </nav>
 
   <div class="bar" id="bar" hidden>
@@ -267,7 +267,8 @@ input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
           <li>Projects: each stage is recognised as revenue in its invoice month, and its sub-contractor cost is charged to cost of sales in the same month. The client pays after the stage's payment days (30 days counts as one month, rounded to whole months). Sub-contractors are paid in the month the client pays.</li>
           <li>Recurring revenue streams start at the first-month figure and grow by a fixed percentage each month. Customers pay after the receivable days.</li>
           <li>Salaries and operating costs start from the figures you enter and can be changed month by month. Salaries are paid in the month they are incurred and carry no VAT. Other operating costs carry VAT and are paid after the payable days.</li>
-          <li>VAT applies to all sales and costs except salaries. Receivables and payables include VAT. The VAT owed builds up and is paid in March, June, September and December, covering everything since the last payment.</li>
+          <li>VAT applies to all sales and costs except salaries. Receivables and payables include VAT. VAT is paid in March, June, September and December. Each payment covers the quarter that ended the month before, so VAT from the payment month itself (December, for example) goes into the next quarter's payment.</li>
+          <li>The cash flow forecast shows money in and out in the month it happens, laid out like the P&amp;L: customer receipts, payments for cost of sales and operating costs, VAT, interest and tax, then investing and financing. Amounts are excluding VAT, with VAT shown on its own lines. Recurring revenue and costs follow the receivable and payable days, so each recurring line is its share of the month's total cash.</li>
           <li>Depreciation is straight-line over the asset life, starting the month after purchase, plus the existing depreciation figure.</li>
           <li>Corporate tax is charged on positive monthly profit before tax, with no carry-forward of losses, and paid after the tax lag.</li>
           <li>Years run January to December, so the first year covers three months (Oct to Dec 2026).</li>
@@ -386,14 +387,15 @@ function compute(A) {
   var tax = idx.map(function (t) { return Math.max(0, pbt[t]) * A.taxRate / 100; });
   var np = idx.map(function (t) { return pbt[t] - tax[t]; });
 
-  // VAT: charged on sales, claimed on costs (not salaries), settled in Mar, Jun, Sep, Dec
+  // VAT: charged on sales, claimed on costs (not salaries). Paid in Mar, Jun, Sep, Dec for the quarter that ended the month before
   var outVAT = idx.map(function (t) { return v * revT[t]; });
   var inVAT = idx.map(function (t) { return v * (cogsT[t] + oxT[t]); });
   var vatPaid = [], vatBal = [], vb = A.openVAT;
   idx.forEach(function (t) {
-    vb += outVAT[t] - inVAT[t];
     var m = (9 + t) % 12;
+    // a quarter ends the month before the payment month, so the payment month's own VAT falls in the next quarter
     if (m === 2 || m === 5 || m === 8 || m === 11) { vatPaid[t] = vb; vb = 0; } else vatPaid[t] = 0;
+    vb += outVAT[t] - inVAT[t];
     vatBal[t] = vb;
   });
   var dVAT = idx.map(function (t) { return outVAT[t] - inVAT[t] - vatPaid[t]; });
@@ -405,6 +407,36 @@ function compute(A) {
   var cashAP = idx.map(function (t) { return ap[t] - (t ? ap[t - 1] : A.openAP); });
   var taxPaid = idx.map(function (t) { return t >= A.taxLag ? tax[t - A.taxLag] : 0; });
   var dTax = idx.map(function (t) { return tax[t] - taxPaid[t]; });
+  // direct cash forecast: receipts and payments in the month they happen
+  var arRecPrev = idx.map(function (t) { return t ? revS[t - 1] * (1 + v) * A.dso / 30 : A.openAR; });
+  var apRecPrev = idx.map(function (t) { return t ? (cogsRec[t - 1] + oxT[t - 1]) * (1 + v) * A.dpo / 30 : A.openAP; });
+  var recGross = idx.map(function (t) { return revS[t] * (1 + v) - (revS[t] * (1 + v) * A.dso / 30 - arRecPrev[t]); });
+  var recBase = idx.map(function (t) { return cogsRec[t] + oxT[t]; });
+  var payGross = idx.map(function (t) { return recBase[t] * (1 + v) - ((recBase[t] * (1 + v) * A.dpo / 30) - apRecPrev[t]); });
+  var gR = idx.map(function (t) { return revS[t] ? recGross[t] / (revS[t] * (1 + v)) : 0; });
+  var gP = idx.map(function (t) { return recBase[t] ? payGross[t] / (recBase[t] * (1 + v)) : 0; });
+  var cRev = rev.map(function (a) { return idx.map(function (t) { return a[t] * gR[t]; }); });
+  var cProj = A.projects.map(function () { return z(); });
+  var cSub = z();
+  A.projects.forEach(function (p, k) {
+    p.stages.forEach(function (st) {
+      if (!(st.charge || st.sub) || st.month >= N) return;
+      var pm = st.month + Math.round(st.days / 30);
+      if (pm < N) { cProj[k][pm] += st.charge; cSub[pm] += st.sub; }
+    });
+  });
+  var cRecvT = idx.map(function (t) { return cRev.reduce(function (s, a) { return s + a[t]; }, 0) + cProj.reduce(function (s, a) { return s + a[t]; }, 0); });
+  var cCogsRec = idx.map(function (t) { return cogsRec[t] * gP[t]; });
+  var cCogsT = idx.map(function (t) { return cCogsRec[t] + cSub[t]; });
+  var cGP = idx.map(function (t) { return cRecvT[t] - cCogsT[t]; });
+  var cOx = ox.map(function (a) { return idx.map(function (t) { return a[t] * gP[t]; }); });
+  var cOxT = idx.map(function (t) { return cOx.reduce(function (s, a) { return s + a[t]; }, 0); });
+  var cOpT = idx.map(function (t) { return salT[t] + cOxT[t]; });
+  var cOpCash = idx.map(function (t) { return cGP[t] - cOpT[t]; });
+  var vatIn = idx.map(function (t) { return v * cRecvT[t]; });
+  var vatOut = idx.map(function (t) { return v * (cCogsT[t] + cOxT[t]); });
+  var vatNet = idx.map(function (t) { return vatIn[t] - vatOut[t] - vatPaid[t]; });
+  var cBeforeFin = idx.map(function (t) { return cOpCash[t] + vatNet[t] - interest[t] - taxPaid[t]; });
   var cfo = idx.map(function (t) { return np[t] + dep[t] + cashAR[t] + cashAP[t] + dVAT[t] + dTax[t]; });
   var inv = capex.map(function (x) { return -x; });
   var eq = idx.map(function (t) { return t === A.equityIdx ? A.equity : 0; });
@@ -416,7 +448,9 @@ function compute(A) {
     salT: salT, ox: ox, oxT: oxT, opT: opT, ebitda: ebitda, dep: dep, ebit: ebit, interest: interest, pbt: pbt, tax: tax, np: np,
     outVAT: outVAT, inVAT: inVAT, vatPaid: vatPaid, vatBal: vatBal, dVAT: dVAT, ar: ar, ap: ap, arProj: arProj, apSub: apSub,
     cashAR: cashAR, cashAP: cashAP, dTax: dTax, cfo: cfo, inv: inv, eq: eq, repay: repay, fin: fin, net: net,
-    openCash: openCash, closeCash: closeCash, debtClose: debtClose };
+    openCash: openCash, closeCash: closeCash, debtClose: debtClose,
+    cRev: cRev, cProj: cProj, cRecvT: cRecvT, cCogsRec: cCogsRec, cSub: cSub, cCogsT: cCogsT, cGP: cGP, cOx: cOx, cOxT: cOxT, cOpT: cOpT,
+    cOpCash: cOpCash, vatIn: vatIn, vatOut: vatOut, vatNet: vatNet, taxPaid: taxPaid, cBeforeFin: cBeforeFin };
 }
 
 function periods(N, mode) {
@@ -510,35 +544,44 @@ function niceScale(min, max, count) {
     return r;
   }
   function cfRows() {
-    return [
-      { head: 'Operating activities' },
-      { label: 'Net profit', s: M.np, style: 'indent', flag: 1 },
-      { label: 'Depreciation added back', s: M.dep, style: 'indent' },
-      { label: 'Change in receivables', s: M.cashAR, style: 'indent' },
-      { label: 'Change in payables', s: M.cashAP, style: 'indent' },
-      { label: 'Change in VAT payable', s: M.dVAT, style: 'indent' },
-      { label: 'Change in tax payable', s: M.dTax, style: 'indent' },
-      { label: 'Cash from operations', s: M.cfo, style: 'sub', flag: 1 },
-      { head: 'Investing activities' },
-      { label: 'Capital expenditure', s: M.inv, style: 'sub' },
-      { head: 'Financing activities' },
-      { label: 'Equity raised', s: M.eq, style: 'indent' },
-      { label: 'Debt repayment', s: neg(M.repay), style: 'indent' },
-      { label: 'Cash from financing', s: M.fin, style: 'sub', flag: 1 },
-      { head: 'Cash position' },
-      { label: 'Net cash movement', s: M.net, style: 'sub', flag: 1 },
-      { label: 'Opening cash', s: M.openCash, type: 'open' },
-      { label: 'Closing cash', s: M.closeCash, type: 'end', style: 'total', flag: 1 },
-      { head: 'VAT' },
-      { label: 'VAT charged on sales', s: M.outVAT, style: 'indent' },
-      { label: 'VAT on costs', s: neg(M.inVAT), style: 'indent' },
-      { label: 'VAT paid to the tax authority', s: neg(M.vatPaid), style: 'indent' },
-      { label: 'VAT payable at period end', s: M.vatBal, type: 'end', style: 'sub' },
-      { head: 'Balances at period end' },
-      { label: 'Receivables (incl. VAT)', s: M.ar, type: 'end', style: 'indent' },
-      { label: 'Payables (incl. VAT)', s: M.ap, type: 'end', style: 'indent' },
-      { label: 'Debt outstanding', s: M.debtClose, type: 'end', style: 'indent' }
-    ];
+    var r = [{ head: 'Cash receipts from customers (excl. VAT)' }];
+    A.streams.forEach(function (st, k) { r.push({ label: st.name, s: M.cRev[k], style: 'indent' }); });
+    A.projects.forEach(function (p, k) { if (total(M.cProj[k]) !== 0) r.push({ label: p.name || 'Project ' + (k + 1), s: M.cProj[k], style: 'indent' }); });
+    r.push({ label: 'Total cash receipts', s: M.cRecvT, style: 'sub' });
+    r.push({ head: 'Payments for cost of sales (excl. VAT)' });
+    r.push({ label: 'Recurring revenue costs', s: neg(M.cCogsRec), style: 'indent' });
+    r.push({ label: 'Sub-contractor payments', s: neg(M.cSub), style: 'indent' });
+    r.push({ label: 'Total cost of sales paid', s: neg(M.cCogsT), style: 'sub' });
+    r.push({ label: 'Gross cash margin', s: M.cGP, style: 'sub', flag: 1 });
+    r.push({ label: 'Gross cash margin %', type: 'ratio', num: M.cGP, den: M.cRecvT, style: 'pct' });
+    r.push({ head: 'Operating payments (excl. VAT)' });
+    r.push({ label: 'Salaries', s: neg(M.salT), style: 'indent' });
+    A.opex.forEach(function (o, k) { r.push({ label: o.name, s: neg(M.cOx[k]), style: 'indent' }); });
+    r.push({ label: 'Total operating payments', s: neg(M.cOpT), style: 'sub' });
+    r.push({ label: 'Operating cash flow before VAT and tax', s: M.cOpCash, style: 'total', flag: 1 });
+    r.push({ head: 'VAT' });
+    r.push({ label: 'VAT received from customers', s: M.vatIn, style: 'indent' });
+    r.push({ label: 'VAT paid to suppliers', s: neg(M.vatOut), style: 'indent' });
+    r.push({ label: 'VAT paid to the tax authority', s: neg(M.vatPaid), style: 'indent' });
+    r.push({ label: 'Net VAT cash', s: M.vatNet, style: 'sub', flag: 1 });
+    r.push({ head: 'Interest and tax' });
+    r.push({ label: 'Interest paid', s: neg(M.interest), style: 'indent' });
+    r.push({ label: 'Corporate tax paid', s: neg(M.taxPaid), style: 'indent' });
+    r.push({ label: 'Cash flow after tax', s: M.cfo, style: 'total', flag: 1 });
+    r.push({ head: 'Investing and financing' });
+    r.push({ label: 'Capital expenditure', s: M.inv, style: 'indent' });
+    r.push({ label: 'Equity raised', s: M.eq, style: 'indent' });
+    r.push({ label: 'Debt repayment', s: neg(M.repay), style: 'indent' });
+    r.push({ head: 'Cash position' });
+    r.push({ label: 'Net cash movement', s: M.net, style: 'sub', flag: 1 });
+    r.push({ label: 'Opening cash', s: M.openCash, type: 'open' });
+    r.push({ label: 'Closing cash', s: M.closeCash, type: 'end', style: 'total', flag: 1 });
+    r.push({ head: 'Balances at period end' });
+    r.push({ label: 'VAT payable (next payment)', s: M.vatBal, type: 'end', style: 'indent' });
+    r.push({ label: 'Receivables (incl. VAT)', s: M.ar, type: 'end', style: 'indent' });
+    r.push({ label: 'Payables (incl. VAT)', s: M.ap, type: 'end', style: 'indent' });
+    r.push({ label: 'Debt outstanding', s: M.debtClose, type: 'end', style: 'indent' });
+    return r;
   }
   function fmtCell(v, r, units) {
     if (v === null || v === undefined) return '–';
@@ -659,15 +702,15 @@ function niceScale(min, max, count) {
       { label: 'Gross profit', s: M.gp },
       { label: 'EBITDA', s: M.ebitda, flag: 1 },
       { label: 'Net profit', s: M.np, flag: 1, style: 'sub' },
-      { label: 'Cash from operations', s: M.cfo, flag: 1 },
+      { label: 'Cash flow after tax', s: M.cfo, flag: 1 },
       { label: 'Closing cash', s: M.closeCash, type: 'end', style: 'total', flag: 1 }
     ], 'annual', 'k', 'Year by year summary');
   }
 
   function renderStatements() {
     renderTable($('pl-table'), plRows(), state.period, state.units, 'Profit and loss');
-    renderTable($('cf-table'), cfRows(), state.period, state.units, 'Cash flow');
-    $('cap').textContent = (state.tab === 'cashflow' ? 'Cash flow' : 'Profit and loss') + ', ' + unitText(state.units);
+    renderTable($('cf-table'), cfRows(), state.period, state.units, 'Cash flow forecast');
+    $('cap').textContent = (state.tab === 'cashflow' ? 'Cash flow forecast' : 'Profit and loss') + ', ' + unitText(state.units);
   }
   function renderHeader() {
     $('sub').textContent = (clientName ? clientName + ' \u00b7 ' : '') + 'Monthly forecast, Oct-26 to ' + M.labels[M.N - 1] + (cur() ? ' · ' + cur() : '');
@@ -794,9 +837,9 @@ function niceScale(min, max, count) {
         frow('dpo', 'Payable days', 'Days taken to pay suppliers', num('dpo', A.dpo, { min: 0, max: 365 })) +
         frow('openAR', 'Opening receivables', 'Including VAT', num('openAR', A.openAR, { min: 0 })) +
         frow('openAP', 'Opening payables', 'Including VAT', num('openAP', A.openAP, { min: 0 })) + '</div>' +
-      '<div class="card"><h2>VAT</h2><p class="hint">Charged on all sales and costs except salaries. Paid in March, June, September and December.</p>' +
+      '<div class="card"><h2>VAT</h2><p class="hint">Charged on all sales and costs except salaries. Paid in March, June, September and December for the quarter that ended the month before.</p>' +
         frow('vat', 'VAT rate (%)', '', num('vat', A.vat, { min: 0, max: 100 })) +
-        frow('openVAT', 'Opening VAT payable', 'Included in the first payment (Dec-26)', num('openVAT', A.openVAT)) + '</div>' +
+        frow('openVAT', 'Opening VAT payable', 'Included in the first payment (Dec-26, covering Sep to Nov)', num('openVAT', A.openVAT)) + '</div>' +
       '<div class="card"><h2>Capital spending</h2>' +
         frow('capex', 'Capex per month', '', num('capex', A.capex, { min: 0 })) +
         frow('lifeYears', 'Asset life (years)', 'Straight-line depreciation', num('lifeYears', A.lifeYears, { min: 0.5, max: 30 })) +
@@ -997,7 +1040,7 @@ function niceScale(min, max, count) {
       document.querySelector('[data-tab="' + k + '"]').setAttribute('aria-selected', k === t ? 'true' : 'false');
     });
     $('bar').hidden = !(t === 'pl' || t === 'cashflow');
-    if (M) $('cap').textContent = (t === 'cashflow' ? 'Cash flow' : 'Profit and loss') + ', ' + unitText(state.units);
+    if (M) $('cap').textContent = (t === 'cashflow' ? 'Cash flow forecast' : 'Profit and loss') + ', ' + unitText(state.units);
   }
   Array.prototype.forEach.call(document.querySelectorAll('[data-tab]'), function (b) {
     b.addEventListener('click', function () { setTab(b.dataset.tab); });
