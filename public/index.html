@@ -173,6 +173,10 @@ input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
 .itab td input[type="number"] { min-width: 110px; }
 .itab td input.days { min-width: 72px; }
 .itab td select { min-width: 96px; }
+.fin th.actc, .fin td.actc { background: rgba(127, 127, 127, 0.07); }
+.itab td input.actin { min-width: 72px; width: 78px; }
+.itab td.al { white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.itab tr.ah td { font-weight: 600; padding-top: 10px; }
 .itab td.sn { color: var(--muted); width: 28px; }
 .itab td.ci { color: var(--muted); white-space: nowrap; font-size: 13px; }
 .stg td:first-child input { min-width: 0; }
@@ -319,13 +323,73 @@ var DEFAULTS = {
   ],
   projects: defaultProjects(),
   employees: defaultEmployees(),
+  cats: ["Staff Benefits/ Expences", "Bank & Interest Charges", "Insurance Exp", "Professional expenses", "Office Expences", "Miscelleneous Expenses", "Membership & Subscription Expenses", "Marketing PR", "Rent Expenses", "Utilites", "", ""],
   opex: [
-    { name: 'Marketing', start: 25000, growth: 1, over: {} },
-    { name: 'Rent and facilities', start: 30000, growth: 0.5, over: {} },
-    { name: 'Software and tools', start: 15000, growth: 1, over: {} },
-    { name: 'Professional fees', start: 12000, growth: 0, over: {} },
-    { name: 'Other overheads', start: 15000, growth: 1, over: {} }
+    { cat: 0, name: "Gratuity", start: 12015.06, growth: 0, over: {}, act: [7169.92, 6476.05, -6454.19, 21255.48, 10575.95, 6386.3, 6599.18, 6599.18, 12015.06] },
+    { cat: 0, name: "Air Fare/Annual Ticket", start: 9006.67, growth: 0, over: {}, act: [0.0, 0, 0, 0, 0, 0, 0, 7009.0, 9006.67] },
+    { cat: 0, name: "Bonus", start: 0, growth: 0, over: {}, act: [0.0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: "Visa & Immigration Expenses", start: 2466.38, growth: 0, over: {}, act: [1212.55, 1212.55, 1722.01, 1404.81, 1223.61, 1223.61, 4004.01, 1445.2, 2466.38] },
+    { cat: 0, name: "Recruitment Service Charges", start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 1, name: "Bank Charges", start: 155.0, growth: 0, over: {}, act: [268.84, 7.74, 99.0, 377.0, 501.0, 8.0, 265.0, 107.53, 155.0] },
+    { cat: 1, name: "Exchange Rate Difference", start: 0, growth: 0, over: {}, act: [29.56, 22.95, 69.0, -2.9, 0.0, 0, 0, 0, 0] },
+    { cat: 2, name: "Workers Compensation Insurance", start: 248.0, growth: 0, over: {}, act: [234.33, 248.0, 248.0, 248.0, 248.0, 248.0, 248.0, 248.0, 248.0] },
+    { cat: 2, name: "Medical Insurance", start: 11590.22, growth: 0, over: {}, act: [12236.55, 12236.55, 12236.55, 11590.22, 11590.22, 11590.22, 11590.22, 11590.22, 11590.22] },
+    { cat: 2, name: "Professional Indemnity Insurance", start: 3750.0, growth: 0, over: {}, act: [4166.67, 3750.0, 3750.0, 3750.0, 3750.0, 3750.0, 3750.0, 3750.0, 3750.0] },
+    { cat: 3, name: "Legal Fees", start: 1726.18, growth: 0, over: {}, act: [0.0, 0, 0, 695.65, 0, 0, 2102.23, 1250.0, 1726.18] },
+    { cat: 3, name: "Professional fees (Accountant /Financ Adviser)", start: 2300.0, growth: 0, over: {}, act: [2300.0, 2300.0, 2300.0, 2300.0, 2300.0, 2300.0, 2300.0, 2300.0, 2300.0] },
+    { cat: 3, name: "Audit Fees", start: 0, growth: 0, over: {}, act: [0.0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 3, name: "Accounting Fees", start: 750.0, growth: 0, over: {}, act: [750.0, 750.0, 750.0, 750.0, 750.0, 750.0, 750.0, 750.0, 750.0] },
+    { cat: 3, name: "Trade License Expense", start: 1478.38, growth: 0, over: {}, act: [1478.38, 1478.38, 1478.38, 1478.38, 1478.38, 1478.38, 7995.47, 1478.38, 1478.38] },
+    { cat: 4, name: "Computer Software", start: 790.0, growth: 0, over: {}, act: [1883.58, 1327.79, 1830.29, 1361.5, 1848.1, 1079.7, 1086.54, 1767.16, 790.0] },
+    { cat: 4, name: "Conveyance", start: 274.5, growth: 0, over: {}, act: [0.0, 0.0, 0.0, 36.69, 144.5, 0, 85.5, 0, 274.5] },
+    { cat: 4, name: "Cleaning Expense", start: 520.0, growth: 0, over: {}, act: [520.0, 650.0, 520.0, 520.0, 650.0, 520.0, 520.0, 650.0, 520.0] },
+    { cat: 4, name: "Stationary", start: 0, growth: 0, over: {}, act: [0.0, 245.0, 27.7, 0.0, 510.14, 0, 94.5, 0, 0] },
+    { cat: 4, name: "Project/Tender Exp", start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 4814.2, 3117.08, 0, 0] },
+    { cat: 4, name: "Office Expense", start: 4087.83, growth: 0, over: {}, act: [1477.65, 717.8, 1169.76, 1525.63, 1171.57, 552.31, 1533.47, 2599.6, 4087.83] },
+    { cat: 4, name: "Website Exp", start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 1804.13, 0, 0] },
+    { cat: 4, name: "Repairs & Maintenance", start: 0, growth: 0, over: {}, act: [0.0, 0, 0, 0, 0, 0, 761.67, 0, 0] },
+    { cat: 5, name: "Postage & Courier Expenses", start: 0, growth: 0, over: {}, act: [22.03, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 5, name: "Recruitment Service Charges", start: 0, growth: 0, over: {}, act: [0.0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 5, name: "Entertainment Expense", start: 2836.17, growth: 0, over: {}, act: [0.0, 0, 0, 521.5, 169.9, 0.0, 0.0, 0, 2836.17] },
+    { cat: 5, name: "Conferences", start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 6, name: "Build Dubai", start: 250.0, growth: 0, over: {}, act: [1500.0, 250.0, 0.0, 500.0, 750.0, 250.0, 0.0, 0, 250.0] },
+    { cat: 6, name: "Subscription Fees", start: 624.75, growth: 0, over: {}, act: [0, 624.75, 624.75, 624.75, 624.75, 624.75, 624.75, 624.75, 624.75] },
+    { cat: 6, name: "RIBA", start: 0, growth: 0, over: {}, act: [0.0, 1781.22, 0.0, 0.0, 0.0, 0, 0, 0, 0] },
+    { cat: 7, name: "Marketing Fee", start: 0, growth: 0, over: {}, act: [0.0, 0.0, 0.0, 6000.0, 0.0, 0.0, 0.0, 12000.0, 0] },
+    { cat: 7, name: "Photography /Video", start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 7, name: "Buisness Development - Travel", start: 2555.46, growth: 0, over: {}, act: [700.0, 0.0, 782.96, 0.0, 0.0, 0.0, 0.0, 0, 2555.46] },
+    { cat: 7, name: "Award Submissions", start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 7, name: "Event Participation", start: 4398.0, growth: 0, over: {}, act: [0.0, 4128.06, 632.87, 0.0, 0.0, 0.0, 0.0, 0, 4398.0] },
+    { cat: 8, name: "Rent", start: 13444.0, growth: 0, over: {}, act: [11036.67, 11036.69, 11036.69, 11036.69, 11036.69, 0.0, 0.0, 13244.0, 13444.0] },
+    { cat: 9, name: "Telephone Exp", start: 1285.0, growth: 0, over: {}, act: [1285.9, 1291.6, 1290.7, 1293.4, 1304.25, 1288.61, 1292.81, 1300.0, 1285.0] },
+    { cat: 9, name: "Electricity Charges", start: 228.72, growth: 0, over: {}, act: [171.58, 233.07, 182.03, 215.96, 215.09, 172.17, 219.44, 223.79, 228.72] },
+    { cat: 9, name: "PO Box", start: 0, growth: 0, over: {}, act: [995.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { cat: 0, name: '', start: 0, growth: 0, over: {}, act: [0, 0, 0, 0, 0, 0, 0, 0, 0] }
   ],
+  act: {
+    rev: blankLines(8), cos: blankLines(8),
+    sal: [248000.0, 248000.0, 238000.0, 228000.0, 228000.0, 182400.0, 182400.0, 228000.0, 220000.0], int: [0, 0, 0, 0, 0, 0, 0, 0, 0], dep: [0, 0, 0, 0, 0, 0, 0, 0, 0], tax: [0, 0, 0, 0, 0, 0, 0, 0, 0]
+  },
   vat: 5, openVAT: 0,
   capex: 20000, lifeYears: 4, existingDep: 6000,
   debtOpen: 1000000, debtRepay: 30000, debtRate: 8,
@@ -336,11 +400,12 @@ var DEFAULTS = {
   debtors: defaultCF([['Client A, invoices 1 to 3', 120000, 0], ['Client B, retention', 100000, 1], ['Client C, final invoice', 80000, 2]]),
   creditors: defaultCF([['Supplier X', 90000, 0], ['Sub-contractor Y', 60000, 1]])
 };
+function blankLines(n) { var a = []; for (var i = 0; i < n; i++) a.push({ name: '', v: [0, 0, 0, 0, 0, 0, 0, 0, 0] }); return a; }
 function defaultCF(rows) { var a = []; for (var i = 0; i < 30; i++) { var r = rows[i]; a.push({ name: r ? r[0] : '', amount: r ? r[1] : 0, month: r ? r[2] : 0 }); } return a; }
 function defaultPrepay() { var a = []; for (var i = 0; i < 10; i++) a.push({ name: '', amount: 0, start: 0, cash: 0, freq: 12, covers: 12 }); return a; }
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function monthsFor(endYear) { return (endYear - 2026) * 12 + 3; }
-function ML(i) { var m = (9 + i) % 12, y = 2026 + Math.floor((9 + i) / 12); return MN[m] + '-' + String(y).slice(2); }
+function ML(i) { var m = ((9 + i) % 12 + 12) % 12, y = 2026 + Math.floor((9 + i) / 12); return MN[m] + '-' + String(y).slice(2); }
 function cashInLabel(st, N) {
   if (!(st.charge || st.sub)) return '–';
   if (st.month >= N) return 'After forecast';
@@ -483,15 +548,23 @@ function compute(A) {
     ppE: ppE, ppC: ppC, ppET: ppET, ppCT: ppCT, ppBal: ppBal, cOpCash: cOpCash, cfDeb: cfDeb, cfCred: cfCred, cfNet: cfNet, vatIn: vatIn, vatOut: vatOut, vatNet: vatNet, taxPaid: taxPaid, cBeforeFin: cBeforeFin };
 }
 
-function periods(N, mode) {
-  var out = [], i, ym = function (k) { return { y: 2026 + Math.floor((9 + k) / 12), m: (9 + k) % 12 }; };
-  if (mode === 'monthly') { for (i = 0; i < N; i++) out.push({ label: ML(i), sub: '', from: i, to: i }); return out; }
+function periods(N, mode, off) {
+  off = off || 0;
+  var out = [], i, ym = function (k) { return { y: 2026 + Math.floor((9 + k - off) / 12), m: (9 + k - off) % 12 }; };
+  var nAct = function (from, to) { var c = 0; for (var k = from; k <= to; k++) if (k < off) c++; return c; };
+  var note = function (from, to, cnt, full) {
+    var na = nAct(from, to);
+    if (na === cnt) return 'Actual';
+    if (na > 0) return na + ' act';
+    return cnt < full ? cnt + ' mo' : '';
+  };
+  if (mode === 'monthly') { for (i = 0; i < N; i++) out.push({ label: ML(i - off), sub: i < off ? 'Actual' : '', act: i < off, from: i, to: i }); return out; }
   var key = function (k) { var d = ym(k); return mode === 'annual' ? d.y : d.y * 10 + Math.floor(d.m / 3); };
   var s = 0;
   for (i = 1; i <= N; i++) {
     if (i === N || key(i) !== key(s)) {
       var d = ym(s), cnt = i - s, full = mode === 'annual' ? 12 : 3;
-      out.push({ label: mode === 'annual' ? String(d.y) : 'Q' + (Math.floor(d.m / 3) + 1) + ' ' + String(d.y).slice(2), sub: cnt < full ? cnt + ' mo' : '', from: s, to: i - 1 });
+      out.push({ label: mode === 'annual' ? String(d.y) : 'Q' + (Math.floor(d.m / 3) + 1) + ' ' + String(d.y).slice(2), sub: note(s, i - 1, cnt, full), act: nAct(s, i - 1) === cnt, from: s, to: i - 1 });
       s = i;
     }
   }
@@ -547,31 +620,84 @@ function niceScale(min, max, count) {
   var total = function (a) { return a.reduce(function (x, y) { return x + y; }, 0); };
 
   /* ---------- statements ---------- */
+  var NACT = 9;
+  var zeros = function (n) { var a = []; for (var i = 0; i < n; i++) a.push(0); return a; };
+  var addArr = function (a, b) { return a.map(function (x, i) { return x + b[i]; }); };
+  var sumArrs = function (list, n) { return list.reduce(addArr, zeros(n)); };
+  var nm = function (x) { return String(x || '').trim().toLowerCase(); };
+  function matchLine(list, name, used) {
+    var n = nm(name); if (!n) return -1;
+    for (var i = 0; i < list.length; i++) if (!used[i] && nm(list[i].name) === n) { used[i] = true; return i; }
+    return -1;
+  }
+  /* cost categories: salaries sit in the first category, prepayments in their own block at the end */
+  function catRows(r, lineSeries, salSeries, ppSeries, len) {
+    A.cats.forEach(function (cn, c) {
+      var rows = [], parts = [];
+      if (c === 0) { rows.push({ label: 'Salaries', s: neg(salSeries), style: 'indent' }); parts.push(salSeries); }
+      A.opex.forEach(function (o, k) {
+        if (o.cat !== c) return;
+        var ser = lineSeries(k);
+        if (!(o.name.trim() || ser.some(function (x) { return x !== 0; }))) return;
+        rows.push({ label: o.name.trim() || 'Line ' + (k + 1), s: neg(ser), style: 'indent' }); parts.push(ser);
+      });
+      if (!rows.length) return;
+      var title = cn.trim() || 'Category ' + (c + 1);
+      r.push({ head: title }); rows.forEach(function (x) { r.push(x); });
+      r.push({ label: 'Total ' + title, s: neg(sumArrs(parts, len)), style: 'sub' });
+    });
+    var pr = [], pp = [];
+    A.prepay.forEach(function (q, k) {
+      var ser = ppSeries(k); if (!ser.some(function (x) { return x !== 0; })) return;
+      pr.push({ label: q.name.trim() || 'Prepayment ' + (k + 1), s: neg(ser), style: 'indent' }); pp.push(ser);
+    });
+    if (pr.length) { r.push({ head: 'Prepaid costs' }); pr.forEach(function (x) { r.push(x); }); r.push({ label: 'Total prepaid costs', s: neg(sumArrs(pp, len)), style: 'sub' }); }
+  }
   function plRows() {
-    var r = [{ head: 'Revenue' }];
-    A.streams.forEach(function (s, k) { r.push({ label: s.name, s: M.rev[k], style: 'indent' }); });
-    A.projects.forEach(function (p, k) { if (total(M.projRev[k]) !== 0) r.push({ label: p.name || 'Project ' + (k + 1), s: M.projRev[k], style: 'indent' }); });
-    r.push({ label: 'Total revenue', s: M.revT, style: 'sub' });
+    var N = M.N, L = N + NACT, ACT = A.act, z9 = zeros(NACT), r = [];
+    var full = function (act, fc) { return (act || z9).concat(fc); };
+    var tail = zeros(N);
+    // revenue: actual lines are matched to a stream or project of the same name, otherwise shown on their own
+    r.push({ head: 'Revenue' });
+    var usedR = {}, k;
+    A.streams.forEach(function (st, i) { var j = matchLine(ACT.rev, st.name, usedR); r.push({ label: st.name, s: full(j >= 0 ? ACT.rev[j].v : null, M.rev[i]), style: 'indent' }); });
+    A.projects.forEach(function (p, i) {
+      var label = p.name || 'Project ' + (i + 1), j = matchLine(ACT.rev, p.name, usedR);
+      if (total(M.projRev[i]) !== 0 || j >= 0) r.push({ label: label, s: full(j >= 0 ? ACT.rev[j].v : null, M.projRev[i]), style: 'indent' });
+    });
+    ACT.rev.forEach(function (l, j) { if (!usedR[j] && (l.name.trim() || l.v.some(function (x) { return x !== 0; }))) r.push({ label: l.name.trim() || 'Revenue line ' + (j + 1), s: l.v.concat(tail), style: 'indent' }); });
+    var revFull = full(sumArrs(ACT.rev.map(function (l) { return l.v; }), NACT), M.revT);
+    r.push({ label: 'Total revenue', s: revFull, style: 'sub' });
+    // cost of sales
     r.push({ head: 'Cost of sales' });
-    r.push({ label: 'Recurring revenue costs', s: neg(M.cogsRec), style: 'indent' });
-    r.push({ label: 'Sub-contractor costs', s: neg(M.subcT), style: 'indent' });
-    r.push({ label: 'Total cost of sales', s: neg(M.cogsT), style: 'sub' });
-    r.push({ label: 'Gross profit', s: M.gp, style: 'sub' });
-    r.push({ label: 'Gross margin', type: 'ratio', num: M.gp, den: M.revT, style: 'pct' });
+    var usedC = {}, j1 = matchLine(ACT.cos, 'Recurring revenue costs', usedC), j2 = matchLine(ACT.cos, 'Sub-contractor costs', usedC);
+    r.push({ label: 'Recurring revenue costs', s: neg(full(j1 >= 0 ? ACT.cos[j1].v : null, M.cogsRec)), style: 'indent' });
+    r.push({ label: 'Sub-contractor costs', s: neg(full(j2 >= 0 ? ACT.cos[j2].v : null, M.subcT)), style: 'indent' });
+    ACT.cos.forEach(function (l, j) { if (!usedC[j] && (l.name.trim() || l.v.some(function (x) { return x !== 0; }))) r.push({ label: l.name.trim() || 'Cost of sales line ' + (j + 1), s: neg(l.v.concat(tail)), style: 'indent' }); });
+    var cosFull = full(sumArrs(ACT.cos.map(function (l) { return l.v; }), NACT), M.cogsT);
+    r.push({ label: 'Total cost of sales', s: neg(cosFull), style: 'sub' });
+    var gpFull = revFull.map(function (x, i) { return x - cosFull[i]; });
+    r.push({ label: 'Gross profit', s: gpFull, style: 'sub' });
+    r.push({ label: 'Gross margin', type: 'ratio', num: gpFull, den: revFull, style: 'pct' });
+    // operating expenses by category, line by line
     r.push({ head: 'Operating expenses' });
-    r.push({ label: 'Salaries', s: neg(M.salT), style: 'indent' });
-    A.opex.forEach(function (o, k) { r.push({ label: o.name, s: neg(M.ox[k]), style: 'indent' }); });
-    A.prepay.forEach(function (q, k) { if (total(M.ppE[k]) !== 0) r.push({ label: 'Prepaid: ' + (q.name || 'Prepayment ' + (k + 1)), s: neg(M.ppE[k]), style: 'indent' }); });
-    r.push({ label: 'Total operating expenses', s: neg(M.opT), style: 'sub' });
-    r.push({ label: 'EBITDA', s: M.ebitda, style: 'total', flag: 1 });
-    r.push({ label: 'EBITDA margin', type: 'ratio', num: M.ebitda, den: M.revT, style: 'pct' });
-    r.push({ label: 'Depreciation', s: neg(M.dep) });
-    r.push({ label: 'EBIT', s: M.ebit, style: 'sub', flag: 1 });
-    r.push({ label: 'Interest expense', s: neg(M.interest) });
-    r.push({ label: 'Profit before tax', s: M.pbt, style: 'sub', flag: 1 });
-    r.push({ label: 'Tax', s: neg(M.tax) });
-    r.push({ label: 'Net profit', s: M.np, style: 'total', flag: 1 });
-    r.push({ label: 'Net margin', type: 'ratio', num: M.np, den: M.revT, style: 'pct' });
+    catRows(r, function (k) { return full(A.opex[k].act, M.ox[k]); }, full(ACT.sal, M.salT), function (k) { return z9.concat(M.ppE[k]); }, L);
+    var opAct = sumArrs([ACT.sal].concat(A.opex.map(function (o) { return o.act; })), NACT);
+    var opFull = full(opAct, M.opT);
+    r.push({ label: 'Total operating expenses', s: neg(opFull), style: 'sub' });
+    var ebitda = gpFull.map(function (x, i) { return x - opFull[i]; });
+    r.push({ label: 'EBITDA', s: ebitda, style: 'total', flag: 1 });
+    r.push({ label: 'EBITDA margin', type: 'ratio', num: ebitda, den: revFull, style: 'pct' });
+    var dep = full(ACT.dep, M.dep), ebit = ebitda.map(function (x, i) { return x - dep[i]; });
+    r.push({ label: 'Depreciation', s: neg(dep) });
+    r.push({ label: 'EBIT', s: ebit, style: 'sub', flag: 1 });
+    var intr = full(ACT.int, M.interest), pbt = ebit.map(function (x, i) { return x - intr[i]; });
+    r.push({ label: 'Interest expense', s: neg(intr) });
+    r.push({ label: 'Profit before tax', s: pbt, style: 'sub', flag: 1 });
+    var tx = full(ACT.tax, M.tax), np = pbt.map(function (x, i) { return x - tx[i]; });
+    r.push({ label: 'Tax', s: neg(tx) });
+    r.push({ label: 'Net profit', s: np, style: 'total', flag: 1 });
+    r.push({ label: 'Net margin', type: 'ratio', num: np, den: revFull, style: 'pct' });
     return r;
   }
   function cfRows() {
@@ -585,10 +711,7 @@ function niceScale(min, max, count) {
     r.push({ label: 'Total cost of sales paid', s: neg(M.cCogsT), style: 'sub' });
     r.push({ label: 'Gross cash margin', s: M.cGP, style: 'sub', flag: 1 });
     r.push({ label: 'Gross cash margin %', type: 'ratio', num: M.cGP, den: M.cRecvT, style: 'pct' });
-    r.push({ head: 'Operating payments (excl. VAT)' });
-    r.push({ label: 'Salaries', s: neg(M.salT), style: 'indent' });
-    A.opex.forEach(function (o, k) { r.push({ label: o.name, s: neg(M.cOx[k]), style: 'indent' }); });
-    A.prepay.forEach(function (q, k) { if (total(M.ppC[k]) !== 0) r.push({ label: 'Prepaid: ' + (q.name || 'Prepayment ' + (k + 1)), s: neg(M.ppC[k]), style: 'indent' }); });
+    catRows(r, function (k) { return M.cOx[k]; }, M.salT, function (k) { return M.ppC[k]; }, M.N);
     r.push({ label: 'Total operating payments', s: neg(M.cOpT), style: 'sub' });
     r.push({ label: 'Operating cash flow before VAT and tax', s: M.cOpCash, style: 'total', flag: 1 });
     r.push({ head: 'VAT' });
@@ -628,19 +751,21 @@ function niceScale(min, max, count) {
     var s = Math.abs(n).toLocaleString('en-US');
     return n < 0 ? '(' + s + ')' : s;
   }
-  function renderTable(el, rows, mode, units, caption) {
-    var P = periods(M.N, mode);
+  function renderTable(el, rows, mode, units, caption, off) {
+    off = off || 0;
+    var P = periods(M.N + off, mode, off);
     var h = '<table class="fin' + (units === 'u' ? ' wide' : '') + '"><caption class="sr">' + esc(caption) + '</caption><thead><tr><th class="lab" scope="col"></th>' +
-      P.map(function (p) { return '<th scope="col">' + p.label + (p.sub ? '<small>' + p.sub + '</small>' : '') + '</th>'; }).join('') + '</tr></thead><tbody>';
+      P.map(function (p) { return '<th scope="col"' + (p.act ? ' class="actc"' : '') + '>' + p.label + (p.sub ? '<small>' + p.sub + '</small>' : '') + '</th>'; }).join('') + '</tr></thead><tbody>';
     rows.forEach(function (r) {
       if (r.head) { h += '<tr class="head"><th class="lab" scope="row">' + esc(r.head) + '</th><td colspan="' + P.length + '"></td></tr>'; return; }
       h += '<tr class="' + (r.style || '') + '"><th class="lab" scope="row">' + esc(r.label) + '</th>' +
-        P.map(function (p) { var v = aggVal(r, p); return '<td class="' + (r.flag && v < 0 ? 'neg' : '') + '">' + fmtCell(v, r, units) + '</td>'; }).join('') + '</tr>';
+        P.map(function (p) { var v = aggVal(r, p); return '<td class="' + (r.flag && v < 0 ? 'neg' : '') + (p.act ? ' actc' : '') + '">' + fmtCell(v, r, units) + '</td>'; }).join('') + '</tr>';
     });
     el.innerHTML = h + '</tbody></table>';
   }
-  function tsv(rows, mode, units) {
-    var P = periods(M.N, mode);
+  function tsv(rows, mode, units, off) {
+    off = off || 0;
+    var P = periods(M.N + off, mode, off);
     var lines = [[' '].concat(P.map(function (p) { return p.label + (p.sub ? ' (' + p.sub + ')' : ''); })).join('\t')];
     rows.forEach(function (r) {
       if (r.head) { lines.push(r.head); return; }
@@ -745,7 +870,7 @@ function niceScale(min, max, count) {
   }
 
   function renderStatements() {
-    renderTable($('pl-table'), plRows(), state.period, state.units, 'Profit and loss');
+    renderTable($('pl-table'), plRows(), state.period, state.units, 'Profit and loss', 9);
     renderTable($('cf-table'), cfRows(), state.period, state.units, 'Cash flow forecast');
     $('cap').textContent = (state.tab === 'cashflow' ? 'Cash flow forecast' : 'Profit and loss') + ', ' + unitText(state.units);
   }
@@ -770,6 +895,34 @@ function niceScale(min, max, count) {
   function monthOpts(sel) { var h = ''; for (var i = 0; i < 39; i++) h += '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + ML(i) + '</option>'; return h; }
   function selMonth(path, val, aria) {
     return '<select id="' + idOf(path) + '" data-path="' + path + '" data-kind="int" aria-label="' + esc(aria) + '">' + monthOpts(val) + '</select>';
+  }
+  function selCat(path, val, aria) {
+    return '<select data-cat="1" id="' + idOf(path) + '" data-path="' + path + '" data-kind="int" aria-label="' + esc(aria) + '">' + catOpts(val) + '</select>';
+  }
+  function catOpts(sel) { return A.cats.map(function (c, i) { return '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + esc(c.trim() || 'Category ' + (i + 1)) + '</option>'; }).join(''); }
+  function syncCats() {
+    Array.prototype.forEach.call(document.querySelectorAll('select[data-cat]'), function (el) {
+      var v = getPath(el.dataset.path); el.innerHTML = catOpts(v);
+    });
+  }
+  function syncActLabels() {
+    A.opex.forEach(function (o, k) { var e = $('acl-' + k); if (e) e.textContent = (o.name.trim() || 'Line ' + (k + 1)) + ' · ' + (A.cats[o.cat] || '').trim(); });
+  }
+  function actualsCard() {
+    var hd = '<th></th>', i;
+    for (i = 0; i < 9; i++) hd += '<th>' + ML(i - 9) + '</th>';
+    var cells = function (base, vals, w) { return vals.map(function (v, i) { return '<td>' + num(base + i, v, { cls: 'actin', aria: w + ' ' + ML(i - 9) }) + '</td>'; }).join(''); };
+    var h = '<table class="itab"><thead><tr>' + hd + '</tr></thead><tbody>';
+    h += '<tr class="ah"><td colspan="10">Revenue</td></tr>';
+    A.act.rev.forEach(function (l, j) { h += '<tr><td>' + txt('act.rev.' + j + '.name', l.name, 'Actual revenue line ' + (j + 1) + ' name', 'Revenue line ' + (j + 1)) + '</td>' + cells('act.rev.' + j + '.v.', l.v, 'Revenue line ' + (j + 1)) + '</tr>'; });
+    h += '<tr class="ah"><td colspan="10">Cost of sales</td></tr>';
+    A.act.cos.forEach(function (l, j) { h += '<tr><td>' + txt('act.cos.' + j + '.name', l.name, 'Actual cost of sales line ' + (j + 1) + ' name', 'Cost of sales line ' + (j + 1)) + '</td>' + cells('act.cos.' + j + '.v.', l.v, 'Cost of sales line ' + (j + 1)) + '</tr>'; });
+    h += '<tr class="ah"><td colspan="10">Salaries, interest, depreciation and tax</td></tr>';
+    [['sal', 'Salaries'], ['int', 'Interest paid'], ['dep', 'Depreciation'], ['tax', 'Tax']].forEach(function (x) { h += '<tr><td class="al">' + x[1] + '</td>' + cells('act.' + x[0] + '.', A.act[x[0]], x[1]) + '</tr>'; });
+    h += '<tr class="ah"><td colspan="10">Operating cost lines</td></tr>';
+    A.opex.forEach(function (o, k) { h += '<tr><td class="al"><span id="acl-' + k + '"></span></td>' + cells('opex.' + k + '.act.', o.act, 'Cost line ' + (k + 1)) + '</tr>'; });
+    return '<div class="card wide"><h2>Actuals, January to September 2026</h2><p class="hint">Actual figures excluding VAT, shown ahead of the forecast on the P&amp;L. Revenue and cost of sales lines with the same name as a revenue stream or project line up with it on the P&amp;L. Cost line actuals sit against the cost lines set up under Operating costs. Actuals do not feed the cash forecast, which starts in October.</p>' +
+      '<details class="proj"><summary><span class="pn">Enter or edit actuals</span><span class="ps">Revenue, cost of sales, operating costs, interest, depreciation and tax by month</span></summary><div class="pbody"><div class="tw" style="border:0">' + h + '</tbody></table></div></div></details></div>';
   }
   var FREQ = [[0, 'One payment'], [1, 'Monthly'], [3, 'Quarterly'], [6, 'Every 6 months'], [12, 'Annually']];
   function selFreq(path, val, aria) {
@@ -869,9 +1022,12 @@ function niceScale(min, max, count) {
       return '<tr><td>' + txt(p + 'name', e.name, 'Employee ' + (k + 1) + ' name', 'Employee ' + (k + 1)) + '</td><td>' + num(p + 'base', e.base, { min: 0, aria: 'Employee ' + (k + 1) + ' monthly salary' }) +
         '</td><td>' + selMonth(p + 'startIdx', e.startIdx, 'Employee ' + (k + 1) + ' start month') + '</td></tr>';
     }).join('');
+    var cRows = A.cats.map(function (c, k) {
+      return '<div class="frow"><label for="' + idOf('cats.' + k) + '">Category ' + (k + 1) + '</label>' + txt('cats.' + k, c, 'Cost category ' + (k + 1) + ' name', 'Unused') + '</div>';
+    }).join('');
     var oRows = A.opex.map(function (o, k) {
       var p = 'opex.' + k + '.';
-      return '<tr><td>' + txt(p + 'name', o.name, 'Cost line ' + (k + 1) + ' name') + '</td><td>' + num(p + 'start', o.start, { min: 0, aria: 'Cost line ' + (k + 1) + ' first-month amount' }) +
+      return '<tr><td>' + selCat(p + 'cat', o.cat, 'Cost line ' + (k + 1) + ' category') + '</td><td>' + txt(p + 'name', o.name, 'Cost line ' + (k + 1) + ' name', 'Cost line ' + (k + 1)) + '</td><td>' + num(p + 'start', o.start, { aria: 'Cost line ' + (k + 1) + ' first-month amount' }) +
         '</td><td>' + num(p + 'growth', o.growth, { min: -50, max: 100, aria: 'Cost line ' + (k + 1) + ' monthly growth' }) + '</td></tr>';
     }).join('');
     var pRows = A.prepay.map(function (q, k) {
@@ -894,11 +1050,13 @@ function niceScale(min, max, count) {
       '<div class="card wide"><h2>Salaries</h2><p class="hint">Up to 20 employees. Enter a monthly salary and a start month to fill the grid, then change any month by typing over it. Set a month to 0 when someone leaves. Salaries are paid in the month they are incurred and carry no VAT.</p>' +
         '<div class="tw" style="border:0"><table class="itab"><thead><tr><th>Employee</th><th>Monthly salary</th><th>Starts in</th></tr></thead><tbody>' + eRows + '</tbody></table></div>' +
         '<h3>Salary by month</h3><p class="hint">Highlighted cells are your own figures. Clear a cell, or use Reset, to go back to the monthly salary above.</p><div id="salgrid"></div></div>' +
-      '<div class="card wide"><h2>Operating costs</h2><p class="hint">These lines carry VAT and are paid after the payable days. The first-month amount and growth fill the grid, and any month can be overridden.</p>' +
-        '<div class="tw" style="border:0"><table class="itab"><thead><tr><th>Cost line</th><th>First-month amount</th><th>Growth per month (%)</th></tr></thead><tbody>' + oRows + '</tbody></table></div>' +
+      '<div class="card wide"><h2>Operating costs</h2><p class="hint">Up to 60 cost lines, each in a category, laid out on the P&amp;L the same way as the actuals. Salaries are set separately above and appear in the first category. These lines carry VAT and are paid after the payable days. The Oct-26 amount and growth fill the grid, and any month can be overridden. Lines you leave unnamed with no amounts are hidden.</p>' +
+        '<details class="proj"><summary><span class="pn">Category names</span><span class="ps">Up to 12 categories. Rename them here</span></summary><div class="pbody">' + cRows + '</div></details>' +
+        '<div class="tw" style="border:0"><table class="itab"><thead><tr><th>Category</th><th>Cost line</th><th>Oct-26 amount</th><th>Growth per month (%)</th></tr></thead><tbody>' + oRows + '</tbody></table></div>' +
         '<h3>Operating costs by month</h3><p class="hint">Highlighted cells are your own figures. Clear a cell, or use Reset, to go back to the formula.</p><div id="oxgrid"></div></div>' +
       '<div class="card wide"><h2>Prepayments</h2><p class="hint">Up to 10 costs paid in advance, such as insurance or annual licences. Enter the amount of each payment excluding VAT. It is paid in cash in the first cash payment month and then at the chosen frequency, and is charged to the P&amp;L evenly over the months covered, starting from the month the cost starts. Cash and VAT move when you pay. The monthly operating costs above are unaffected.</p>' +
         '<div class="tw" style="border:0"><table class="itab"><thead><tr><th>Prepayment</th><th>Amount per payment</th><th>Cost starts</th><th>First cash payment</th><th>Frequency</th><th>Months covered</th></tr></thead><tbody>' + pRows + '</tbody></table></div></div>' +
+      actualsCard() +
       '<div class="card"><h2>Working capital</h2><p class="hint">Applies to recurring revenue and operating costs. Projects use the payment days on each stage. Balances carried forward from before October 2026 are entered under Carried forward debtors and creditors.</p>' +
         frow('dso', 'Receivable days', 'Days customers take to pay', num('dso', A.dso, { min: 0, max: 365 })) +
         frow('dpo', 'Payable days', 'Days taken to pay suppliers', num('dpo', A.dpo, { min: 0, max: 365 })) +
@@ -920,7 +1078,7 @@ function niceScale(min, max, count) {
         frow('taxRate', 'Tax rate (%)', 'On positive monthly profit', num('taxRate', A.taxRate, { min: 0, max: 100 })) +
         frow('taxLag', 'Tax paid after (months)', 'Delay between charge and payment', num('taxLag', A.taxLag, { min: 0, max: 36, int: true })) + '</div>' +
       '</div>';
-    rebuildEquity(); buildProjects(); syncCF(); buildGrid('sal'); buildGrid('ox');
+    rebuildEquity(); buildProjects(); syncCF(); syncActLabels(); buildGrid('sal'); buildGrid('ox');
   }
   function rebuildEquity() {
     var sel = $('a-equityIdx'), N = monthsFor(A.horizonEnd), h = '';
@@ -940,7 +1098,7 @@ function niceScale(min, max, count) {
       if (!o.over) o.over = {};
       if (el.value === '') { delete o.over[t]; el.classList.remove('ov'); }
       else { var gv = parseFloat(el.value); if (isNaN(gv)) gv = 0; o.over[t] = Math.max(0, gv); el.classList.add('ov'); }
-      touch(ds.g === 'ox' ? 'opex' : 'employees');
+      touch(ds.g === 'ox' ? 'costs' : 'employees');
       refresh(); return;
     }
     var path = ds.path; if (!path) return;
@@ -957,6 +1115,8 @@ function niceScale(min, max, count) {
     if (/^projects\./.test(path)) syncProjects();
     if (/^(debtors|creditors)\./.test(path)) syncCF();
     if (/^opex\.\d+\./.test(path)) updateGrid('ox');
+    if (/^opex\.\d+\.(name|cat)$/.test(path)) syncActLabels();
+    if (/^cats\.\d+$/.test(path)) syncCats();
     if (/^employees\.\d+\./.test(path)) updateGrid('sal');
     touch(sectionOfPath(path));
     refresh();
@@ -969,12 +1129,13 @@ function niceScale(min, max, count) {
     var rl = e.target.closest ? e.target.closest('[data-greset]') : null;
     if (!rl) return;
     var key = rl.dataset.greset, o = GRIDS[key].list()[+rl.dataset.gk];
-    o.over = {}; updateGrid(key); touch(key === 'ox' ? 'opex' : 'employees'); refresh();
+    o.over = {}; updateGrid(key); touch(key === 'ox' ? 'costs' : 'employees'); refresh();
   });
 
   /* ---------- shared storage on Supabase: one row per section, reached only through two token-checked functions ---------- */
-  var ITEMS = ['streams', 'opex', 'employees', 'prepay', 'debtors', 'creditors'];
-  var SECTIONS = ['general', 'streams', 'opex', 'employees', 'prepay', 'debtors', 'creditors', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9'];
+  var ITEMS = ['streams', 'opex', 'employees', 'prepay', 'debtors', 'creditors', 'cats'];
+  var KEY = { costs: 'opex' };
+  var SECTIONS = ['general', 'streams', 'costs', 'employees', 'prepay', 'debtors', 'creditors', 'cats', 'actuals', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9'];
   var SCALARS = ['currency', 'horizonEnd', 'openCash', 'vat', 'openVAT', 'capex', 'lifeYears', 'existingDep', 'debtOpen', 'debtRepay', 'debtRate', 'equity', 'equityIdx', 'taxRate', 'taxLag', 'dso', 'dpo'];
   var CFG = window.APP_CONFIG || {};
   var KEEP = 'plcf-link';
@@ -998,20 +1159,28 @@ function niceScale(min, max, count) {
   function sectionOfPath(path) {
     var m = /^projects\.(\d+)\./.exec(path); if (m) return 'p' + m[1];
     var root = path.split('.')[0];
+    if (root === 'opex') return 'costs';
+    if (root === 'act') return 'actuals';
     return ITEMS.indexOf(root) >= 0 ? root : 'general';
   }
   function sectionData(id) {
     if (id === 'general') { var g = {}; SCALARS.forEach(function (k) { g[k] = A[k]; }); return g; }
+    if (id === 'actuals') return clone(A.act);
+    if (id === 'costs') return { items: clone(A.opex) };
     if (ITEMS.indexOf(id) >= 0) return { items: clone(A[id]) };
     return clone(A.projects[+id.slice(1)]);
   }
   function defaultSection(id) {
     if (id === 'general') { var g = {}; SCALARS.forEach(function (k) { g[k] = DEFAULTS[k]; }); return g; }
+    if (id === 'actuals') return clone(DEFAULTS.act);
+    if (id === 'costs') return { items: clone(DEFAULTS.opex) };
     if (ITEMS.indexOf(id) >= 0) return { items: clone(DEFAULTS[id]) };
     return clone(DEFAULTS.projects[+id.slice(1)]);
   }
   function applySection(id, data) {
     if (id === 'general') { SCALARS.forEach(function (k) { if (data && typeof data[k] === typeof DEFAULTS[k]) A[k] = data[k]; }); return; }
+    if (id === 'actuals') { A.act = merge(DEFAULTS.act, data); return; }
+    if (id === 'costs') { A.opex = merge(DEFAULTS.opex, data && data.items); return; }
     if (ITEMS.indexOf(id) >= 0) { A[id] = merge(DEFAULTS[id], data && data.items); return; }
     A.projects[+id.slice(1)] = merge(DEFAULTS.projects[+id.slice(1)], data);
   }
@@ -1058,7 +1227,7 @@ function niceScale(min, max, count) {
       if (el === ae) return;
       var v = getPath(el.dataset.path); if (v !== undefined) el.value = v;
     });
-    updateGrid('ox'); updateGrid('sal'); syncProjects(); syncCF(); refresh();
+    updateGrid('ox'); updateGrid('sal'); syncProjects(); syncCF(); syncCats(); syncActLabels(); refresh();
   }
   function applyRemote(model, first) {
     var secs = (model && model.sections) || {}, changed = false;
@@ -1135,7 +1304,7 @@ function niceScale(min, max, count) {
   var csTimer;
   $('copy').addEventListener('click', function () {
     var rows = state.tab === 'cashflow' ? cfRows() : plRows();
-    copyText(tsv(rows, state.period, state.units)).then(function (ok) {
+    copyText(tsv(rows, state.period, state.units, state.tab === 'cashflow' ? 0 : 9)).then(function (ok) {
       $('cs').textContent = ok ? 'Copied. Paste into a spreadsheet.' : 'Copy is not available here.';
       clearTimeout(csTimer); csTimer = setTimeout(function () { $('cs').textContent = ''; }, 2600);
     });
