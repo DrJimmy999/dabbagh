@@ -269,6 +269,7 @@ input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
           <li>Salaries and operating costs start from the figures you enter and can be changed month by month. Salaries are paid in the month they are incurred and carry no VAT. Other operating costs carry VAT and are paid after the payable days.</li>
           <li>VAT applies to all sales and costs except salaries. Receivables and payables include VAT. VAT is paid in March, June, September and December. Each payment covers the quarter that ended the month before, so VAT from the payment month itself (December, for example) goes into the next quarter's payment.</li>
           <li>The cash flow forecast shows money in and out in the month it happens, laid out like the P&amp;L: customer receipts, payments for cost of sales and operating costs, VAT, interest and tax, then investing and financing. Amounts are excluding VAT, with VAT shown on its own lines. Recurring revenue and costs follow the receivable and payable days, so each recurring line is its share of the month's total cash.</li>
+          <li>Prepayments are paid in cash in the month you choose, with no payable days, and the VAT is claimed in that month. Each payment is charged to the P&amp;L in equal parts over the months it covers. The difference sits in prepaid costs on the cash forecast.</li>
           <li>Carried forward debtors and creditors are invoices from before October 2026. Each one is collected or paid, including VAT, in the month you enter. They affect cash only, never the P&amp;L.</li>
           <li>Depreciation is straight-line over the asset life, starting the month after purchase, plus the existing depreciation figure.</li>
           <li>Corporate tax is charged on positive monthly profit before tax, with no carry-forward of losses, and paid after the tax lag.</li>
@@ -331,10 +332,12 @@ var DEFAULTS = {
   equity: 0, equityIdx: 5,
   taxRate: 9, taxLag: 9,
   dso: 45, dpo: 30,
+  prepay: defaultPrepay(),
   debtors: defaultCF([['Client A, invoices 1 to 3', 120000, 0], ['Client B, retention', 100000, 1], ['Client C, final invoice', 80000, 2]]),
   creditors: defaultCF([['Supplier X', 90000, 0], ['Sub-contractor Y', 60000, 1]])
 };
 function defaultCF(rows) { var a = []; for (var i = 0; i < 30; i++) { var r = rows[i]; a.push({ name: r ? r[0] : '', amount: r ? r[1] : 0, month: r ? r[2] : 0 }); } return a; }
+function defaultPrepay() { var a = []; for (var i = 0; i < 10; i++) a.push({ name: '', amount: 0, start: 0, cash: 0, freq: 12, covers: 12 }); return a; }
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function monthsFor(endYear) { return (endYear - 2026) * 12 + 3; }
 function ML(i) { var m = (9 + i) % 12, y = 2026 + Math.floor((9 + i) / 12); return MN[m] + '-' + String(y).slice(2); }
@@ -378,7 +381,25 @@ function compute(A) {
   var salT = sumA(sal);
   var ox = A.opex.map(function (o) { return idx.map(function (t) { var ov = o.over && o.over[t]; return ov !== undefined ? ov : o.start * Math.pow(1 + o.growth / 100, t); }); });
   var oxT = sumA(ox);
-  var opT = idx.map(function (t) { return salT[t] + oxT[t]; });
+  // prepayments: paid in cash on the payment months, expensed evenly over the months each payment covers
+  var ppE = [], ppC = [];
+  A.prepay.forEach(function (q) {
+    var e = z(), c = z();
+    if (q.amount > 0 && q.covers > 0) {
+      var f = q.freq;
+      for (var k = 0; ; k++) {
+        var pm = q.cash + k * f; if (pm >= N) break;
+        c[pm] += q.amount;
+        for (var j = 0; j < q.covers; j++) { var mm = q.start + k * f + j; if (mm >= 0 && mm < N) e[mm] += q.amount / q.covers; }
+        if (!f) break;
+      }
+    }
+    ppE.push(e); ppC.push(c);
+  });
+  var ppET = sumA(ppE.length ? ppE : [z()]), ppCT = sumA(ppC.length ? ppC : [z()]);
+  var ppBal = [], pb = 0;
+  idx.forEach(function (t) { pb += ppCT[t] - ppET[t]; ppBal[t] = pb; });
+  var opT = idx.map(function (t) { return salT[t] + oxT[t] + ppET[t]; });
   var ebitda = idx.map(function (t) { return gp[t] - opT[t]; });
 
   var life = Math.max(1, Math.round(A.lifeYears * 12));
@@ -393,7 +414,7 @@ function compute(A) {
 
   // VAT: charged on sales, claimed on costs (not salaries). Paid in Mar, Jun, Sep, Dec for the quarter that ended the month before
   var outVAT = idx.map(function (t) { return v * revT[t]; });
-  var inVAT = idx.map(function (t) { return v * (cogsT[t] + oxT[t]); });
+  var inVAT = idx.map(function (t) { return v * (cogsT[t] + oxT[t] + ppCT[t]); });
   var vatPaid = [], vatBal = [], vb = A.openVAT;
   idx.forEach(function (t) {
     var m = (9 + t) % 12;
@@ -439,14 +460,14 @@ function compute(A) {
   var cGP = idx.map(function (t) { return cRecvT[t] - cCogsT[t]; });
   var cOx = ox.map(function (a) { return idx.map(function (t) { return a[t] * gP[t]; }); });
   var cOxT = idx.map(function (t) { return cOx.reduce(function (s, a) { return s + a[t]; }, 0); });
-  var cOpT = idx.map(function (t) { return salT[t] + cOxT[t]; });
+  var cOpT = idx.map(function (t) { return salT[t] + cOxT[t] + ppCT[t]; });
   var cOpCash = idx.map(function (t) { return cGP[t] - cOpT[t]; });
   var vatIn = idx.map(function (t) { return v * cRecvT[t]; });
-  var vatOut = idx.map(function (t) { return v * (cCogsT[t] + cOxT[t]); });
+  var vatOut = idx.map(function (t) { return v * (cCogsT[t] + cOxT[t] + ppCT[t]); });
   var vatNet = idx.map(function (t) { return vatIn[t] - vatOut[t] - vatPaid[t]; });
   var cfNet = idx.map(function (t) { return cfDeb[t] - cfCred[t]; });
   var cBeforeFin = idx.map(function (t) { return cOpCash[t] + vatNet[t] + cfNet[t] - interest[t] - taxPaid[t]; });
-  var cfo = idx.map(function (t) { return np[t] + dep[t] + cashAR[t] + cashAP[t] + dVAT[t] + dTax[t]; });
+  var cfo = idx.map(function (t) { return np[t] + dep[t] + cashAR[t] + cashAP[t] + dVAT[t] + dTax[t] + ppET[t] - ppCT[t]; });
   var inv = capex.map(function (x) { return -x; });
   var eq = idx.map(function (t) { return t === A.equityIdx ? A.equity : 0; });
   var fin = idx.map(function (t) { return eq[t] - repay[t]; });
@@ -459,7 +480,7 @@ function compute(A) {
     cashAR: cashAR, cashAP: cashAP, dTax: dTax, cfo: cfo, inv: inv, eq: eq, repay: repay, fin: fin, net: net,
     openCash: openCash, closeCash: closeCash, debtClose: debtClose,
     cRev: cRev, cProj: cProj, cRecvT: cRecvT, cCogsRec: cCogsRec, cSub: cSub, cCogsT: cCogsT, cGP: cGP, cOx: cOx, cOxT: cOxT, cOpT: cOpT,
-    cOpCash: cOpCash, cfDeb: cfDeb, cfCred: cfCred, cfNet: cfNet, vatIn: vatIn, vatOut: vatOut, vatNet: vatNet, taxPaid: taxPaid, cBeforeFin: cBeforeFin };
+    ppE: ppE, ppC: ppC, ppET: ppET, ppCT: ppCT, ppBal: ppBal, cOpCash: cOpCash, cfDeb: cfDeb, cfCred: cfCred, cfNet: cfNet, vatIn: vatIn, vatOut: vatOut, vatNet: vatNet, taxPaid: taxPaid, cBeforeFin: cBeforeFin };
 }
 
 function periods(N, mode) {
@@ -540,6 +561,7 @@ function niceScale(min, max, count) {
     r.push({ head: 'Operating expenses' });
     r.push({ label: 'Salaries', s: neg(M.salT), style: 'indent' });
     A.opex.forEach(function (o, k) { r.push({ label: o.name, s: neg(M.ox[k]), style: 'indent' }); });
+    A.prepay.forEach(function (q, k) { if (total(M.ppE[k]) !== 0) r.push({ label: 'Prepaid: ' + (q.name || 'Prepayment ' + (k + 1)), s: neg(M.ppE[k]), style: 'indent' }); });
     r.push({ label: 'Total operating expenses', s: neg(M.opT), style: 'sub' });
     r.push({ label: 'EBITDA', s: M.ebitda, style: 'total', flag: 1 });
     r.push({ label: 'EBITDA margin', type: 'ratio', num: M.ebitda, den: M.revT, style: 'pct' });
@@ -566,6 +588,7 @@ function niceScale(min, max, count) {
     r.push({ head: 'Operating payments (excl. VAT)' });
     r.push({ label: 'Salaries', s: neg(M.salT), style: 'indent' });
     A.opex.forEach(function (o, k) { r.push({ label: o.name, s: neg(M.cOx[k]), style: 'indent' }); });
+    A.prepay.forEach(function (q, k) { if (total(M.ppC[k]) !== 0) r.push({ label: 'Prepaid: ' + (q.name || 'Prepayment ' + (k + 1)), s: neg(M.ppC[k]), style: 'indent' }); });
     r.push({ label: 'Total operating payments', s: neg(M.cOpT), style: 'sub' });
     r.push({ label: 'Operating cash flow before VAT and tax', s: M.cOpCash, style: 'total', flag: 1 });
     r.push({ head: 'VAT' });
@@ -591,6 +614,7 @@ function niceScale(min, max, count) {
     r.push({ label: 'Closing cash', s: M.closeCash, type: 'end', style: 'total', flag: 1 });
     r.push({ head: 'Balances at period end' });
     r.push({ label: 'VAT payable (next payment)', s: M.vatBal, type: 'end', style: 'indent' });
+    r.push({ label: 'Prepaid costs not yet expensed', s: M.ppBal, type: 'end', style: 'indent' });
     r.push({ label: 'Receivables (incl. VAT)', s: M.ar, type: 'end', style: 'indent' });
     r.push({ label: 'Payables (incl. VAT)', s: M.ap, type: 'end', style: 'indent' });
     r.push({ label: 'Debt outstanding', s: M.debtClose, type: 'end', style: 'indent' });
@@ -747,6 +771,10 @@ function niceScale(min, max, count) {
   function selMonth(path, val, aria) {
     return '<select id="' + idOf(path) + '" data-path="' + path + '" data-kind="int" aria-label="' + esc(aria) + '">' + monthOpts(val) + '</select>';
   }
+  var FREQ = [[0, 'One payment'], [1, 'Monthly'], [3, 'Quarterly'], [6, 'Every 6 months'], [12, 'Annually']];
+  function selFreq(path, val, aria) {
+    return '<select id="' + idOf(path) + '" data-path="' + path + '" data-kind="int" aria-label="' + esc(aria) + '">' + FREQ.map(function (f) { return '<option value="' + f[0] + '"' + (f[0] === val ? ' selected' : '') + '>' + f[1] + '</option>'; }).join('') + '</select>';
+  }
   function frow(path, label, hint, input) {
     return '<div class="frow"><label for="' + idOf(path) + '">' + label + (hint ? '<small>' + hint + '</small>' : '') + '</label>' + input + '</div>';
   }
@@ -846,6 +874,12 @@ function niceScale(min, max, count) {
       return '<tr><td>' + txt(p + 'name', o.name, 'Cost line ' + (k + 1) + ' name') + '</td><td>' + num(p + 'start', o.start, { min: 0, aria: 'Cost line ' + (k + 1) + ' first-month amount' }) +
         '</td><td>' + num(p + 'growth', o.growth, { min: -50, max: 100, aria: 'Cost line ' + (k + 1) + ' monthly growth' }) + '</td></tr>';
     }).join('');
+    var pRows = A.prepay.map(function (q, k) {
+      var b = 'prepay.' + k + '.', w = 'Prepayment ' + (k + 1);
+      return '<tr><td>' + txt(b + 'name', q.name, w + ' name', 'Prepayment ' + (k + 1)) + '</td><td>' + num(b + 'amount', q.amount, { min: 0, aria: w + ' amount per payment' }) +
+        '</td><td>' + selMonth(b + 'start', q.start, w + ' cost starts') + '</td><td>' + selMonth(b + 'cash', q.cash, w + ' first cash payment') +
+        '</td><td>' + selFreq(b + 'freq', q.freq, w + ' payment frequency') + '</td><td>' + num(b + 'covers', q.covers, { min: 1, max: 60, int: true, cls: 'days', aria: w + ' months covered per payment' }) + '</td></tr>';
+    }).join('');
     var hz = [2027, 2028, 2029].map(function (yr) {
       return '<option value="' + yr + '"' + (A.horizonEnd === yr ? ' selected' : '') + '>December ' + yr + ' (' + monthsFor(yr) + ' months)</option>';
     }).join('');
@@ -863,6 +897,8 @@ function niceScale(min, max, count) {
       '<div class="card wide"><h2>Operating costs</h2><p class="hint">These lines carry VAT and are paid after the payable days. The first-month amount and growth fill the grid, and any month can be overridden.</p>' +
         '<div class="tw" style="border:0"><table class="itab"><thead><tr><th>Cost line</th><th>First-month amount</th><th>Growth per month (%)</th></tr></thead><tbody>' + oRows + '</tbody></table></div>' +
         '<h3>Operating costs by month</h3><p class="hint">Highlighted cells are your own figures. Clear a cell, or use Reset, to go back to the formula.</p><div id="oxgrid"></div></div>' +
+      '<div class="card wide"><h2>Prepayments</h2><p class="hint">Up to 10 costs paid in advance, such as insurance or annual licences. Enter the amount of each payment excluding VAT. It is paid in cash in the first cash payment month and then at the chosen frequency, and is charged to the P&amp;L evenly over the months covered, starting from the month the cost starts. Cash and VAT move when you pay. The monthly operating costs above are unaffected.</p>' +
+        '<div class="tw" style="border:0"><table class="itab"><thead><tr><th>Prepayment</th><th>Amount per payment</th><th>Cost starts</th><th>First cash payment</th><th>Frequency</th><th>Months covered</th></tr></thead><tbody>' + pRows + '</tbody></table></div></div>' +
       '<div class="card"><h2>Working capital</h2><p class="hint">Applies to recurring revenue and operating costs. Projects use the payment days on each stage. Balances carried forward from before October 2026 are entered under Carried forward debtors and creditors.</p>' +
         frow('dso', 'Receivable days', 'Days customers take to pay', num('dso', A.dso, { min: 0, max: 365 })) +
         frow('dpo', 'Payable days', 'Days taken to pay suppliers', num('dpo', A.dpo, { min: 0, max: 365 })) +
@@ -937,8 +973,8 @@ function niceScale(min, max, count) {
   });
 
   /* ---------- shared storage on Supabase: one row per section, reached only through two token-checked functions ---------- */
-  var ITEMS = ['streams', 'opex', 'employees', 'debtors', 'creditors'];
-  var SECTIONS = ['general', 'streams', 'opex', 'employees', 'debtors', 'creditors', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9'];
+  var ITEMS = ['streams', 'opex', 'employees', 'prepay', 'debtors', 'creditors'];
+  var SECTIONS = ['general', 'streams', 'opex', 'employees', 'prepay', 'debtors', 'creditors', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9'];
   var SCALARS = ['currency', 'horizonEnd', 'openCash', 'vat', 'openVAT', 'capex', 'lifeYears', 'existingDep', 'debtOpen', 'debtRepay', 'debtRate', 'equity', 'equityIdx', 'taxRate', 'taxLag', 'dso', 'dpo'];
   var CFG = window.APP_CONFIG || {};
   var KEEP = 'plcf-link';
