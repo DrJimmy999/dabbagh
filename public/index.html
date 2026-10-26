@@ -402,7 +402,7 @@ var DEFAULTS = {
 };
 function blankLines(n) { var a = []; for (var i = 0; i < n; i++) a.push({ name: '', v: [0, 0, 0, 0, 0, 0, 0, 0, 0] }); return a; }
 function defaultCF(rows) { var a = []; for (var i = 0; i < 30; i++) { var r = rows[i]; a.push({ name: r ? r[0] : '', amount: r ? r[1] : 0, month: r ? r[2] : 0 }); } return a; }
-function defaultPrepay() { var a = []; for (var i = 0; i < 10; i++) a.push({ name: '', amount: 0, start: 0, cash: 0, freq: 12, covers: 12 }); return a; }
+function defaultPrepay() { var a = []; for (var i = 0; i < 10; i++) a.push({ name: '', line: -1, amount: 0, start: 0, cash: 0, freq: 12, covers: 12 }); return a; }
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function monthsFor(endYear) { return (endYear - 2026) * 12 + 3; }
 function ML(i) { var m = ((9 + i) % 12 + 12) % 12, y = 2026 + Math.floor((9 + i) / 12); return MN[m] + '-' + String(y).slice(2); }
@@ -461,6 +461,15 @@ function compute(A) {
     }
     ppE.push(e); ppC.push(c);
   });
+  // a prepayment linked to a cost line replaces that line's monthly forecast from its first cost month onwards
+  var ppLE = A.opex.map(function () { return z(); }), ppLC = A.opex.map(function () { return z(); }), cutFrom = A.opex.map(function () { return N; });
+  A.prepay.forEach(function (q, i) {
+    if (!(q.line >= 0 && q.line < A.opex.length && q.amount > 0 && q.covers > 0)) return;
+    idx.forEach(function (t) { ppLE[q.line][t] += ppE[i][t]; ppLC[q.line][t] += ppC[i][t]; });
+    cutFrom[q.line] = Math.min(cutFrom[q.line], Math.max(0, q.start));
+  });
+  ox.forEach(function (a, k) { for (var t = cutFrom[k]; t < N; t++) a[t] = 0; });
+  oxT = sumA(ox);
   var ppET = sumA(ppE.length ? ppE : [z()]), ppCT = sumA(ppC.length ? ppC : [z()]);
   var ppBal = [], pb = 0;
   idx.forEach(function (t) { pb += ppCT[t] - ppET[t]; ppBal[t] = pb; });
@@ -545,7 +554,7 @@ function compute(A) {
     cashAR: cashAR, cashAP: cashAP, dTax: dTax, cfo: cfo, inv: inv, eq: eq, repay: repay, fin: fin, net: net,
     openCash: openCash, closeCash: closeCash, debtClose: debtClose,
     cRev: cRev, cProj: cProj, cRecvT: cRecvT, cCogsRec: cCogsRec, cSub: cSub, cCogsT: cCogsT, cGP: cGP, cOx: cOx, cOxT: cOxT, cOpT: cOpT,
-    ppE: ppE, ppC: ppC, ppET: ppET, ppCT: ppCT, ppBal: ppBal, cOpCash: cOpCash, cfDeb: cfDeb, cfCred: cfCred, cfNet: cfNet, vatIn: vatIn, vatOut: vatOut, vatNet: vatNet, taxPaid: taxPaid, cBeforeFin: cBeforeFin };
+    ppE: ppE, ppC: ppC, ppLE: ppLE, ppLC: ppLC, ppET: ppET, ppCT: ppCT, ppBal: ppBal, cOpCash: cOpCash, cfDeb: cfDeb, cfCred: cfCred, cfNet: cfNet, vatIn: vatIn, vatOut: vatOut, vatNet: vatNet, taxPaid: taxPaid, cBeforeFin: cBeforeFin };
 }
 
 function periods(N, mode, off) {
@@ -648,6 +657,7 @@ function niceScale(min, max, count) {
     });
     var pr = [], pp = [];
     A.prepay.forEach(function (q, k) {
+      if (q.line >= 0 && q.line < A.opex.length && q.amount > 0) return;
       var ser = ppSeries(k); if (!ser.some(function (x) { return x !== 0; })) return;
       pr.push({ label: q.name.trim() || 'Prepayment ' + (k + 1), s: neg(ser), style: 'indent' }); pp.push(ser);
     });
@@ -681,7 +691,7 @@ function niceScale(min, max, count) {
     r.push({ label: 'Gross margin', type: 'ratio', num: gpFull, den: revFull, style: 'pct' });
     // operating expenses by category, line by line
     r.push({ head: 'Operating expenses' });
-    catRows(r, function (k) { return full(A.opex[k].act, M.ox[k]); }, full(ACT.sal, M.salT), function (k) { return z9.concat(M.ppE[k]); }, L);
+    catRows(r, function (k) { return full(A.opex[k].act, addArr(M.ox[k], M.ppLE[k])); }, full(ACT.sal, M.salT), function (k) { return z9.concat(M.ppE[k]); }, L);
     var opAct = sumArrs([ACT.sal].concat(A.opex.map(function (o) { return o.act; })), NACT);
     var opFull = full(opAct, M.opT);
     r.push({ label: 'Total operating expenses', s: neg(opFull), style: 'sub' });
@@ -711,7 +721,7 @@ function niceScale(min, max, count) {
     r.push({ label: 'Total cost of sales paid', s: neg(M.cCogsT), style: 'sub' });
     r.push({ label: 'Gross cash margin', s: M.cGP, style: 'sub', flag: 1 });
     r.push({ label: 'Gross cash margin %', type: 'ratio', num: M.cGP, den: M.cRecvT, style: 'pct' });
-    catRows(r, function (k) { return M.cOx[k]; }, M.salT, function (k) { return M.ppC[k]; }, M.N);
+    catRows(r, function (k) { return addArr(M.cOx[k], M.ppLC[k]); }, M.salT, function (k) { return M.ppC[k]; }, M.N);
     r.push({ label: 'Total operating payments', s: neg(M.cOpT), style: 'sub' });
     r.push({ label: 'Operating cash flow before VAT and tax', s: M.cOpCash, style: 'total', flag: 1 });
     r.push({ head: 'VAT' });
@@ -900,6 +910,17 @@ function niceScale(min, max, count) {
     return '<select data-cat="1" id="' + idOf(path) + '" data-path="' + path + '" data-kind="int" aria-label="' + esc(aria) + '">' + catOpts(val) + '</select>';
   }
   function catOpts(sel) { return A.cats.map(function (c, i) { return '<option value="' + i + '"' + (i === sel ? ' selected' : '') + '>' + esc(c.trim() || 'Category ' + (i + 1)) + '</option>'; }).join(''); }
+  function lineOpts(sel) {
+    var h = '<option value="-1"' + (sel < 0 ? ' selected' : '') + '>Separate line under Prepaid costs</option>';
+    A.opex.forEach(function (o, k) { if (o.name.trim() || k === sel) h += '<option value="' + k + '"' + (k === sel ? ' selected' : '') + '>' + esc(o.name.trim() || 'Line ' + (k + 1)) + '</option>'; });
+    return h;
+  }
+  function selLine(path, val, aria) {
+    return '<select data-ppline="1" id="' + idOf(path) + '" data-path="' + path + '" data-kind="int" aria-label="' + esc(aria) + '">' + lineOpts(val) + '</select>';
+  }
+  function syncPPLines() {
+    Array.prototype.forEach.call(document.querySelectorAll('select[data-ppline]'), function (el) { el.innerHTML = lineOpts(getPath(el.dataset.path)); });
+  }
   function syncCats() {
     Array.prototype.forEach.call(document.querySelectorAll('select[data-cat]'), function (el) {
       var v = getPath(el.dataset.path); el.innerHTML = catOpts(v);
@@ -1032,7 +1053,7 @@ function niceScale(min, max, count) {
     }).join('');
     var pRows = A.prepay.map(function (q, k) {
       var b = 'prepay.' + k + '.', w = 'Prepayment ' + (k + 1);
-      return '<tr><td>' + txt(b + 'name', q.name, w + ' name', 'Prepayment ' + (k + 1)) + '</td><td>' + num(b + 'amount', q.amount, { min: 0, aria: w + ' amount per payment' }) +
+      return '<tr><td>' + selLine(b + 'line', q.line, w + ' P&L line') + '</td><td>' + txt(b + 'name', q.name, w + ' name if not linked', 'Prepayment ' + (k + 1)) + '</td><td>' + num(b + 'amount', q.amount, { min: 0, aria: w + ' amount per payment' }) +
         '</td><td>' + selMonth(b + 'start', q.start, w + ' cost starts') + '</td><td>' + selMonth(b + 'cash', q.cash, w + ' first cash payment') +
         '</td><td>' + selFreq(b + 'freq', q.freq, w + ' payment frequency') + '</td><td>' + num(b + 'covers', q.covers, { min: 1, max: 60, int: true, cls: 'days', aria: w + ' months covered per payment' }) + '</td></tr>';
     }).join('');
@@ -1054,8 +1075,8 @@ function niceScale(min, max, count) {
         '<details class="proj"><summary><span class="pn">Category names</span><span class="ps">Up to 12 categories. Rename them here</span></summary><div class="pbody">' + cRows + '</div></details>' +
         '<div class="tw" style="border:0"><table class="itab"><thead><tr><th>Category</th><th>Cost line</th><th>Oct-26 amount</th><th>Growth per month (%)</th></tr></thead><tbody>' + oRows + '</tbody></table></div>' +
         '<h3>Operating costs by month</h3><p class="hint">Highlighted cells are your own figures. Clear a cell, or use Reset, to go back to the formula.</p><div id="oxgrid"></div></div>' +
-      '<div class="card wide"><h2>Prepayments</h2><p class="hint">Up to 10 costs paid in advance, such as insurance or annual licences. Enter the amount of each payment excluding VAT. It is paid in cash in the first cash payment month and then at the chosen frequency, and is charged to the P&amp;L evenly over the months covered, starting from the month the cost starts. Cash and VAT move when you pay. The monthly operating costs above are unaffected.</p>' +
-        '<div class="tw" style="border:0"><table class="itab"><thead><tr><th>Prepayment</th><th>Amount per payment</th><th>Cost starts</th><th>First cash payment</th><th>Frequency</th><th>Months covered</th></tr></thead><tbody>' + pRows + '</tbody></table></div></div>' +
+      '<div class="card wide"><h2>Prepayments</h2><p class="hint">Up to 10 costs paid in advance, such as insurance or annual licences. Choose the P&amp;L line the prepayment belongs to: from its first cost month the prepayment replaces the monthly forecast for that line, and earlier months and the actuals stay as they are. Or leave it as a separate line under Prepaid costs. Enter the amount of each payment excluding VAT. It is paid in cash in the first cash payment month and then at the chosen frequency, and is charged to the P&amp;L evenly over the months covered, starting from the month the cost starts. Cash and VAT move when you pay. </p>' +
+        '<div class="tw" style="border:0"><table class="itab"><thead><tr><th>P&amp;L line</th><th>Name if not linked</th><th>Amount per payment</th><th>Cost starts</th><th>First cash payment</th><th>Frequency</th><th>Months covered</th></tr></thead><tbody>' + pRows + '</tbody></table></div></div>' +
       actualsCard() +
       '<div class="card"><h2>Working capital</h2><p class="hint">Applies to recurring revenue and operating costs. Projects use the payment days on each stage. Balances carried forward from before October 2026 are entered under Carried forward debtors and creditors.</p>' +
         frow('dso', 'Receivable days', 'Days customers take to pay', num('dso', A.dso, { min: 0, max: 365 })) +
@@ -1078,7 +1099,7 @@ function niceScale(min, max, count) {
         frow('taxRate', 'Tax rate (%)', 'On positive monthly profit', num('taxRate', A.taxRate, { min: 0, max: 100 })) +
         frow('taxLag', 'Tax paid after (months)', 'Delay between charge and payment', num('taxLag', A.taxLag, { min: 0, max: 36, int: true })) + '</div>' +
       '</div>';
-    rebuildEquity(); buildProjects(); syncCF(); syncActLabels(); buildGrid('sal'); buildGrid('ox');
+    rebuildEquity(); buildProjects(); syncCF(); syncActLabels(); syncPPLines(); buildGrid('sal'); buildGrid('ox');
   }
   function rebuildEquity() {
     var sel = $('a-equityIdx'), N = monthsFor(A.horizonEnd), h = '';
@@ -1116,6 +1137,7 @@ function niceScale(min, max, count) {
     if (/^(debtors|creditors)\./.test(path)) syncCF();
     if (/^opex\.\d+\./.test(path)) updateGrid('ox');
     if (/^opex\.\d+\.(name|cat)$/.test(path)) syncActLabels();
+    if (/^opex\.\d+\.name$/.test(path)) syncPPLines();
     if (/^cats\.\d+$/.test(path)) syncCats();
     if (/^employees\.\d+\./.test(path)) updateGrid('sal');
     touch(sectionOfPath(path));
@@ -1227,7 +1249,7 @@ function niceScale(min, max, count) {
       if (el === ae) return;
       var v = getPath(el.dataset.path); if (v !== undefined) el.value = v;
     });
-    updateGrid('ox'); updateGrid('sal'); syncProjects(); syncCF(); syncCats(); syncActLabels(); refresh();
+    updateGrid('ox'); updateGrid('sal'); syncProjects(); syncCF(); syncCats(); syncActLabels(); syncPPLines(); refresh();
   }
   function applyRemote(model, first) {
     var secs = (model && model.sections) || {}, changed = false;
