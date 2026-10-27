@@ -176,6 +176,8 @@ input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
 .itab td input[type="number"] { min-width: 110px; }
 .itab td input.days { min-width: 72px; }
 .itab td select { min-width: 96px; }
+.fin th.yrc, .fin td.yrc { font-weight: 600; background: var(--tint); }
+.fin th.yrc:first-of-type { border-left: 0; }
 .fin th.actc, .fin td.actc { background: rgba(127, 127, 127, 0.07); }
 .itab td input.actin { min-width: 72px; width: 78px; }
 .itab td.al { white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
@@ -583,6 +585,16 @@ function periods(N, mode, off) {
   }
   return out;
 }
+// yearly totals appended at the far right, for monthly and quarterly views (the annual view already shows years)
+function withYearTotals(P, n, off, mode) {
+  if (mode === 'annual') return P;
+  var out = P.slice(), y0 = 2026, lastYear = 2026 + Math.floor((9 + n - off - 1) / 12);
+  for (var y = y0; y <= lastYear; y++) {
+    var from = (y - y0) * 12, to = Math.min(from + 11, n - 1);
+    out.push({ label: String(y), sub: 'Total', act: false, tot: true, from: from, to: to });
+  }
+  return out;
+}
 function sumRange(a, p) { var t = 0; for (var i = p.from; i <= p.to; i++) t += a[i]; return t; }
 function aggVal(r, p) {
   if (r.type === 'ratio') { var n = sumRange(r.num, p), d = sumRange(r.den, p); return d ? n / d : null; }
@@ -767,28 +779,30 @@ function niceScale(min, max, count) {
     var s = Math.abs(n).toLocaleString('en-US');
     return n < 0 ? '(' + s + ')' : s;
   }
-  function renderTable(el, rows, mode, units, caption, off) {
+  function renderTable(el, rows, mode, units, caption, off, yt) {
     off = off || 0;
     var P = periods(M.N + off, mode, off);
+    if (yt) P = withYearTotals(P, M.N + off, off, mode);
     var h = '<table class="fin' + (units === 'u' ? ' wide' : '') + '"><caption class="sr">' + esc(caption) + '</caption><thead><tr><th class="lab" scope="col"></th>' +
-      P.map(function (p) { return '<th scope="col"' + (p.act ? ' class="actc"' : '') + '>' + p.label + (p.sub ? '<small>' + p.sub + '</small>' : '') + '</th>'; }).join('') + '</tr></thead><tbody>';
+      P.map(function (p) { return '<th scope="col"' + (p.act ? ' class="actc"' : p.tot ? ' class="yrc"' : '') + '>' + p.label + (p.sub ? '<small>' + p.sub + '</small>' : '') + '</th>'; }).join('') + '</tr></thead><tbody>';
     rows.forEach(function (r) {
       if (r.grp && r.head) {
         var cl = !!state.closed[r.grp];
         h += '<tr class="head grp"><th class="lab" scope="row"><button type="button" class="gt" data-g="' + r.grp + '" aria-expanded="' + (cl ? 'false' : 'true') + '">' + (cl ? '\u25B8 ' : '\u25BE ') + esc(r.head) + '</button></th>' +
-          (cl ? P.map(function (p) { var v = aggVal(r, p); return '<td class="' + (p.act ? 'actc' : '') + '">' + fmtCell(v, r, units) + '</td>'; }).join('') : '<td colspan="' + P.length + '"></td>') + '</tr>';
+          (cl ? P.map(function (p) { var v = aggVal(r, p); return '<td class="' + (p.act ? 'actc' : p.tot ? 'yrc' : '') + '">' + fmtCell(v, r, units) + '</td>'; }).join('') : '<td colspan="' + P.length + '"></td>') + '</tr>';
         return;
       }
       if (r.grp && state.closed[r.grp]) return;
       if (r.head) { h += '<tr class="head"><th class="lab" scope="row">' + esc(r.head) + '</th><td colspan="' + P.length + '"></td></tr>'; return; }
       h += '<tr class="' + (r.style || '') + '"><th class="lab" scope="row">' + esc(r.label) + '</th>' +
-        P.map(function (p) { var v = aggVal(r, p); return '<td class="' + (r.flag && v < 0 ? 'neg' : '') + (p.act ? ' actc' : '') + '">' + fmtCell(v, r, units) + '</td>'; }).join('') + '</tr>';
+        P.map(function (p) { var v = aggVal(r, p); return '<td class="' + (r.flag && v < 0 ? 'neg' : '') + (p.act ? ' actc' : p.tot ? ' yrc' : '') + '">' + fmtCell(v, r, units) + '</td>'; }).join('') + '</tr>';
     });
     el.innerHTML = h + '</tbody></table>';
   }
-  function tsv(rows, mode, units, off) {
+  function tsv(rows, mode, units, off, yt) {
     off = off || 0;
     var P = periods(M.N + off, mode, off);
+    if (yt) P = withYearTotals(P, M.N + off, off, mode);
     var lines = [[' '].concat(P.map(function (p) { return p.label + (p.sub ? ' (' + p.sub + ')' : ''); })).join('\t')];
     rows.forEach(function (r) {
       if (r.head) { lines.push(r.head); return; }
@@ -893,7 +907,7 @@ function niceScale(min, max, count) {
   }
 
   function renderStatements() {
-    renderTable($('pl-table'), plRows(), state.period, state.units, 'Profit and loss', 9);
+    renderTable($('pl-table'), plRows(), state.period, state.units, 'Profit and loss', 9, true);
     renderTable($('cf-table'), cfRows(), state.period, state.units, 'Cash flow forecast');
     $('cap').textContent = (state.tab === 'cashflow' ? 'Cash flow forecast' : 'Profit and loss') + ', ' + unitText(state.units);
   }
@@ -1352,7 +1366,7 @@ function niceScale(min, max, count) {
   syncCatAll();
   $('copy').addEventListener('click', function () {
     var rows = state.tab === 'cashflow' ? cfRows() : plRows();
-    copyText(tsv(rows, state.period, state.units, state.tab === 'cashflow' ? 0 : 9)).then(function (ok) {
+    copyText(tsv(rows, state.period, state.units, state.tab === 'cashflow' ? 0 : 9, state.tab !== 'cashflow')).then(function (ok) {
       $('cs').textContent = ok ? 'Copied. Paste into a spreadsheet.' : 'Copy is not available here.';
       clearTimeout(csTimer); csTimer = setTimeout(function () { $('cs').textContent = ''; }, 2600);
     });
