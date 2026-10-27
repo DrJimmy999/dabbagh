@@ -241,8 +241,8 @@ input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
         <button data-period="annual" aria-pressed="false">Annual</button>
       </div>
       <div class="seg" role="group" aria-label="Units">
-        <button data-units="k" aria-pressed="true">Thousands</button>
-        <button data-units="u" aria-pressed="false">Full amounts</button>
+        <button data-units="k" aria-pressed="false">Thousands</button>
+        <button data-units="u" aria-pressed="true">Full amounts</button>
       </div>
       <button class="btn" id="catall">Collapse categories</button>
       <button class="btn" id="copy">Copy table</button>
@@ -635,7 +635,7 @@ function niceScale(min, max, count) {
   function save() {}
 
   var A = load(), M = null;
-  var state = { tab: 'summary', period: 'monthly', units: 'k', closed: {} };
+  var state = { tab: 'summary', period: 'monthly', units: 'u', closed: {} };
   try { var sc = JSON.parse(localStorage.getItem('plcf-closed') || '{}'); if (sc && typeof sc === 'object') state.closed = sc; } catch (e) {}
   function saveClosed() { try { localStorage.setItem('plcf-closed', JSON.stringify(state.closed)); } catch (e) {} }
   var TABS = ['summary', 'assumptions', 'pl', 'cashflow'];
@@ -895,7 +895,7 @@ function niceScale(min, max, count) {
       lines: [{ name: 'EBITDA', v: M.ebitda, color: 'var(--accent)' }, { name: 'Net profit', v: M.np, color: 'var(--ink)', dash: '5 4' }] });
     drawChart($('ch-cash'), { title: 'Closing cash balance by month', labels: M.labels, area: true,
       lines: [{ name: 'Closing cash', v: M.closeCash, color: 'var(--accent)' }] });
-    $('sum-u').textContent = unitText('k');
+    $('sum-u').textContent = unitText('u');
     renderTable($('sum-table'), [
       { label: 'Total revenue', s: M.revT },
       { label: 'Gross profit', s: M.gp },
@@ -903,7 +903,7 @@ function niceScale(min, max, count) {
       { label: 'Net profit', s: M.np, flag: 1, style: 'sub' },
       { label: 'Cash flow after tax', s: M.cfo, flag: 1 },
       { label: 'Closing cash', s: M.closeCash, type: 'end', style: 'total', flag: 1 }
-    ], 'annual', 'k', 'Year by year summary');
+    ], 'annual', 'u', 'Year by year summary');
   }
 
   function renderStatements() {
